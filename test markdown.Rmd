@@ -7,3 +7,12 @@ output: html_document
 ## *whats up*
 
 this is how to hyperlink [data](https://www.google.com/search?sca_esv=597936199&rlz=1C5CHFA_enUS753US753&sxsrf=ACQVn0_5-PlOsL2tyqLxesQjoYGGYNhKKg:1705099946324&q=r+script+vs+r+notebook&tbm=vid&source=lnms&sa=X&ved=2ahUKEwj_pu2k-NiDAxXWC0QIHWWSChkQ0pQJegQIDBAB&biw=2560&bih=1323&dpr=1#fpstate=ive&vld=cid:2b4aa766,vid:K418swtFnik,st:0)
+
+```{r}
+# my code here
+answer <- 2 + 4
+answer
+my_data <- cars
+my_data
+```
+
