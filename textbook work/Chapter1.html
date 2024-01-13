@@ -413,6 +413,25 @@ data.</p>
 ## Dimension:     XY
 ## Bounding box:  xmin: -75.28023 ymin: 39.86591 xmax: -74.95551 ymax: 40.13771
 ## Geodetic CRS:  WGS 84</code></pre>
+<pre class="r"><code>#im not sure exactly what the issue was, but I was unable to query the data directly from github and had download and query from my computer
+tracts00[1:3,]</code></pre>
+<pre><code>## Simple feature collection with 3 features and 4 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 2696968 ymin: -68663.64 xmax: 2700290 ymax: -65640.25
+## Projected CRS: NAD_1983_StatePlane_Pennsylvania_North_FIPS_3701_Feet
+##         GEOID           NAME  variable value                       geometry
+## 1 42101000100 Census Tract 1   P001001  2576 MULTIPOLYGON (((2697812 -65...
+## 2 42101000100 Census Tract 1   P006002  2095 MULTIPOLYGON (((2697812 -65...
+## 3 42101000100 Census Tract 1 PCT025050    48 MULTIPOLYGON (((2697812 -65...</code></pre>
+<p>to find out how many census plots we have in our geography
+(Philadelphia), we can create a table the displays how many rows we have
+by variable. our data is long formatted so there are multiple rows
+representing a given census plot.</p>
+<pre class="r"><code>table(tracts00$variable)</code></pre>
+<pre><code>## 
+##   H056001   P001001   P006002   P053001   P092001 PCT025009 PCT025050 
+##       381       381       381       381       381       381       381</code></pre>
 
 
 

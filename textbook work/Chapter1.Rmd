@@ -39,5 +39,11 @@ from the textbook: In this chapter, the tidycensus is used to query and return C
 tracts00 <- 
   st_read(file.path("PHL_CT00.geojson")) %>% 
     st_transform('ESRI:102728')
+#im not sure exactly what the issue was, but I was unable to query the data directly from github and had download and query from my computer
+tracts00[1:3,]
+```
+to find out how many census plots we have in our geography (Philadelphia), we can create a table the displays how many rows we have by variable. our data is long formatted so there are multiple rows representing a given census plot.
+```{r}
+table(tracts00$variable)
 ```
 
