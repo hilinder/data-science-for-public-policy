@@ -386,6 +386,33 @@ root.dir = &quot;https://raw.githubusercontent.com/urbanSpatial/Public-Policy-An
 source(&quot;https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r&quot;)</code></pre>
 <p>Here is the color palette we are going to use for maps</p>
 <pre class="r"><code>palette5 &lt;- c(&quot;#f0f9e8&quot;,&quot;#bae4bc&quot;,&quot;#7bccc4&quot;,&quot;#43a2ca&quot;,&quot;#0868ac&quot;)</code></pre>
+<p>how to install my census api key</p>
+<pre class="r"><code>census_api_key(&quot;c08e727b3d32b823955aea424744c9dda3b30df0&quot;, install = TRUE, overwrite = TRUE)</code></pre>
+<pre><code>## Your original .Renviron will be backed up and stored in your R HOME directory if needed.</code></pre>
+<pre><code>## Your API key has been stored in your .Renviron and can be accessed by Sys.getenv(&quot;CENSUS_API_KEY&quot;). 
+## To use now, restart R or run `readRenviron(&quot;~/.Renviron&quot;)`</code></pre>
+<pre><code>## [1] &quot;c08e727b3d32b823955aea424744c9dda3b30df0&quot;</code></pre>
+<pre class="r"><code># readRenviron(&quot;~/.Renviron&quot;) is for some reason needed for the api to be active in the current session 
+readRenviron(&quot;~/.Renviron&quot;)</code></pre>
+<p>we will be using the following data</p>
+<p>from the textbook: In this chapter, the tidycensus is used to query
+and return Census data directly into R. At the time of publication
+however, the Census has disabled the year 2000 endpoint/data.10 Instead,
+the code below downloads an equivalent data frame called tracts00. A
+data frame is the most common way to store data in R. The code block at
+the end of this section demonstrates a tidycensus call to return 2017
+data.</p>
+<pre class="r"><code>tracts00 &lt;- 
+  st_read(file.path(&quot;PHL_CT00.geojson&quot;)) %&gt;% 
+    st_transform(&#39;ESRI:102728&#39;)</code></pre>
+<pre><code>## Reading layer `PHL_CT00&#39; from data source 
+##   `/Users/harrisonlinder/Desktop/data science for public policy/textbook work/PHL_CT00.geojson&#39; 
+##   using driver `GeoJSON&#39;
+## Simple feature collection with 2667 features and 4 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: -75.28023 ymin: 39.86591 xmax: -74.95551 ymax: 40.13771
+## Geodetic CRS:  WGS 84</code></pre>
 
 
 
