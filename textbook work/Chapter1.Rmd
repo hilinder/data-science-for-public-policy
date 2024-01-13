@@ -58,4 +58,67 @@ nrow(totalpop00)
 # lets see a snapshot of our data
 head(totalpop00)
 ```
+lets take a look at what the basic "plot function does for an {sf} layer
+
+```{r}
+plot(totalpop00)
+```
+
+### the textbook illustrates how to make progressively more useful maps using the ggplot function with geom_sf layers
+
+from the textbook:
+A maps totalPop00, using the aes or aesthetic parameter to fill the tract polygons by the value field.
+
+Plot B converts value to 5 quintile categories using the q5 function. These 5 categories are of class factor. Try q5(totalPop00$value).
+
+Plot C adds fill color and legend improvements using the scale_fill_manual function. Many different scale types are possible.13 values is set to a list of colors, palette5. labels is set to the values of the associated quintiles (try qBr(totalPop00, "value")). Finally, a legend name is added. \n inserts a hard return.
+
+Plot D inserts a title using the labs parameter, as well as a mapTheme
+
+```{r}
+Plot_A <- 
+  ggplot() +
+  geom_sf(data = totalpop00, aes(fill = value))
+
+Plot_B <- 
+  ggplot() +
+  geom_sf(data = totalpop00, aes(fill = q5(value)))
+
+Plot_C <-
+  ggplot() +
+  geom_sf(data = totalpop00, aes(fill = q5(value))) +
+  scale_fill_manual(values = palette5,
+                    labels = qBr(totalpop00, "value"),
+                    name = "Total\nPopluation\n(Quintile Breaks)")
+
+Plot_D <- 
+  ggplot() +
+  geom_sf(data = totalpop00, aes(fill = q5(value))) +
+  scale_fill_manual(values = palette5,
+                    labels = qBr(totalpop00, "value"),
+                    name = "Popluation\n(Quintile Breaks)") +
+  labs(title = "Total Population", subtitle = "Philadelphia; 2000") +
+  mapTheme()
+```
+the above code saves our plots to their assigned variables. below we can print them.
+
+```{r}
+print(Plot_A)
+print(Plot_B)
+print(Plot_C)
+print(Plot_D)
+```
+next, the textbook converts the data from long format to wide format and in general makes it easier to read.
+```{r}
+tracts00 <- 
+  dplyr::select(tracts00, -NAME) %>%
+    spread(variable, value) %>%
+    dplyr::select(-geometry) %>%
+    rename(TotalPop = P001001, Whites = P006002, MaleBachelors = PCT025009,
+           FemaleBachelors = PCT025050, MedHHInc = P053001, MedRent = H056001,
+           TotalPoverty = P092001) 
+
+st_drop_geometry(tracts00)[1:3,]
+```
+
 
