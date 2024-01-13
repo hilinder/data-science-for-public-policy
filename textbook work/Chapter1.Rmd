@@ -5,3 +5,29 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+below are the necessary libraries to use for this course
+
+```{r}
+library(tidyverse)
+library(tidycensus)
+library(sf)
+library(kableExtra)
+
+options(scipen=999)
+options(tigris_class = "sf")
+
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+```
+
+Here is the color palette we are going to use for maps
+```{r}
+palette5 <- c("#f0f9e8","#bae4bc","#7bccc4","#43a2ca","#0868ac")
+
+```
+
+this is the data we will use for the excersises in this chapter
+```{r}
+View(load_variables(2000, "sf3", cache = TRUE))
+```
+
