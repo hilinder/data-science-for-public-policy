@@ -11,7 +11,7 @@
 
 <meta name="author" content="Harrison Linder" />
 
-<meta name="date" content="2024-01-13" />
+<meta name="date" content="2024-01-16" />
 
 <title>chapter 1</title>
 
@@ -352,7 +352,7 @@ display: none;
 
 <h1 class="title toc-ignore">chapter 1</h1>
 <h4 class="author">Harrison Linder</h4>
-<h4 class="date">2024-01-13</h4>
+<h4 class="date">2024-01-16</h4>
 
 </div>
 
@@ -532,6 +532,348 @@ st_drop_geometry(tracts00)[1:3,]</code></pre>
 ## 1              48
 ## 2              73
 ## 3             103</code></pre>
+<p>now we are going to query 2017 acs data to match our 2000 data. I am
+going to change the code from the textbook so that we can see the data
+change which each line of code.</p>
+<pre class="r"><code>tracts17 &lt;- 
+  get_acs(geography = &quot;tract&quot;, variables = c(&quot;B25026_001E&quot;,&quot;B02001_002E&quot;,&quot;B15001_050E&quot;,
+                                             &quot;B15001_009E&quot;,&quot;B19013_001E&quot;,&quot;B25058_001E&quot;,
+                                             &quot;B06012_002E&quot;), 
+          year=2017, state=42, county=101, geometry=T, output=&quot;wide&quot;) %&gt;%
+    print() %&gt;%
+  st_transform(&#39;ESRI:102728&#39;) %&gt;%
+    print() %&gt;%
+  rename(TotalPop = B25026_001E, Whites = B02001_002E,
+         FemaleBachelors = B15001_050E, MaleBachelors = B15001_009E,
+         MedHHInc = B19013_001E, MedRent = B25058_001E,
+         TotalPoverty = B06012_002E) %&gt;%
+    print() %&gt;%
+  dplyr::select(-NAME, -starts_with(&quot;B&quot;)) %&gt;%
+    print() %&gt;%
+  mutate(pctWhite = ifelse(TotalPop &gt; 0, Whites / TotalPop,0),
+         pctBachelors = ifelse(TotalPop &gt; 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
+         pctPoverty = ifelse(TotalPop &gt; 0, TotalPoverty / TotalPop, 0),
+         year = &quot;2017&quot;) %&gt;%
+    print() %&gt;%
+  dplyr::select(-Whites, -FemaleBachelors, -MaleBachelors, -TotalPoverty) </code></pre>
+<pre><code>## Getting data from the 2013-2017 5-year ACS</code></pre>
+<pre><code>## Downloading feature geometry from the Census website.  To cache shapefiles for use in future sessions, set `options(tigris_use_cache = TRUE)`.</code></pre>
+<pre><code>## 
+  |                                                                            
+  |                                                                      |   0%
+  |                                                                            
+  |=                                                                     |   1%
+  |                                                                            
+  |==                                                                    |   2%
+  |                                                                            
+  |==                                                                    |   3%
+  |                                                                            
+  |===                                                                   |   4%
+  |                                                                            
+  |====                                                                  |   5%
+  |                                                                            
+  |=====                                                                 |   7%
+  |                                                                            
+  |=====                                                                 |   8%
+  |                                                                            
+  |======                                                                |   9%
+  |                                                                            
+  |=======                                                               |  10%
+  |                                                                            
+  |========                                                              |  11%
+  |                                                                            
+  |========                                                              |  12%
+  |                                                                            
+  |=========                                                             |  13%
+  |                                                                            
+  |==========                                                            |  14%
+  |                                                                            
+  |============                                                          |  17%
+  |                                                                            
+  |==============                                                        |  20%
+  |                                                                            
+  |================                                                      |  23%
+  |                                                                            
+  |=================                                                     |  25%
+  |                                                                            
+  |===================                                                   |  27%
+  |                                                                            
+  |=====================                                                 |  29%
+  |                                                                            
+  |========================                                              |  34%
+  |                                                                            
+  |=========================                                             |  36%
+  |                                                                            
+  |============================                                          |  40%
+  |                                                                            
+  |=============================                                         |  41%
+  |                                                                            
+  |==============================                                        |  43%
+  |                                                                            
+  |=================================                                     |  47%
+  |                                                                            
+  |====================================                                  |  51%
+  |                                                                            
+  |======================================                                |  54%
+  |                                                                            
+  |===========================================                           |  62%
+  |                                                                            
+  |==============================================                        |  66%
+  |                                                                            
+  |=================================================                     |  70%
+  |                                                                            
+  |==================================================                    |  72%
+  |                                                                            
+  |======================================================                |  77%
+  |                                                                            
+  |===========================================================           |  84%
+  |                                                                            
+  |==============================================================        |  89%
+  |                                                                            
+  |=================================================================     |  92%
+  |                                                                            
+  |==================================================================    |  95%
+  |                                                                            
+  |====================================================================  |  97%
+  |                                                                            
+  |======================================================================| 100%
+## Simple feature collection with 384 features and 16 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: -75.28027 ymin: 39.86705 xmax: -74.95578 ymax: 40.13799
+## Geodetic CRS:  NAD83
+## First 10 features:
+##          GEOID                                                  NAME
+## 1  42101000200     Census Tract 2, Philadelphia County, Pennsylvania
+## 2  42101000500     Census Tract 5, Philadelphia County, Pennsylvania
+## 3  42101000901  Census Tract 9.01, Philadelphia County, Pennsylvania
+## 4  42101001002 Census Tract 10.02, Philadelphia County, Pennsylvania
+## 5  42101002000    Census Tract 20, Philadelphia County, Pennsylvania
+## 6  42101003901 Census Tract 39.01, Philadelphia County, Pennsylvania
+## 7  42101007102 Census Tract 71.02, Philadelphia County, Pennsylvania
+## 8  42101008701 Census Tract 87.01, Philadelphia County, Pennsylvania
+## 9  42101010200   Census Tract 102, Philadelphia County, Pennsylvania
+## 10 42101011500   Census Tract 115, Philadelphia County, Pennsylvania
+##    B25026_001E B25026_001M B02001_002E B02001_002M B15001_050E B15001_050M
+## 1         2479         424         698         196         145          90
+## 2         1375         124        1096         292          61          27
+## 3         1949         179        1452         209          96          49
+## 4         3259         264        3056         251          26          23
+## 5         2154         222         534         133           6           7
+## 6         6583         810        4597         840         124          91
+## 7         4944         740         174         127           7          10
+## 8         4356         499        2194         358         206         101
+## 9         3311         481           0          10           0          10
+## 10        4686         431         189          95           0          10
+##    B15001_009E B15001_009M B19013_001E B19013_001M B25058_001E B25058_001M
+## 1          113          62       30746        8706        1051         128
+## 2           55          45       42135       12885        1363         174
+## 3           39          30       42548        9262        1095          62
+## 4           15          14      109020       12211        1598         103
+## 5           39          40       41335        6339         841          47
+## 6           40          47       38301        3245         774          49
+## 7            0          10       31332        6631         708         101
+## 8          251         134       44225        4124         908          52
+## 9            0          10       18989        5279         486          79
+## 10          18          28       51155        4231         788          28
+##    B06012_002E B06012_002M                       geometry
+## 1          962         378 MULTIPOLYGON (((-75.16234 3...
+## 2          536         107 MULTIPOLYGON (((-75.16506 3...
+## 3          473         131 MULTIPOLYGON (((-75.16484 3...
+## 4          211         163 MULTIPOLYGON (((-75.15034 3...
+## 5          365         139 MULTIPOLYGON (((-75.18824 3...
+## 6         1423         504 MULTIPOLYGON (((-75.17691 3...
+## 7         1715         610 MULTIPOLYGON (((-75.23363 3...
+## 8         1094         320 MULTIPOLYGON (((-75.21272 3...
+## 9         1337         469 MULTIPOLYGON (((-75.23536 3...
+## 10         739         315 MULTIPOLYGON (((-75.25592 3...
+## Simple feature collection with 384 features and 16 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 2660774 ymin: -98728.57 xmax: 2750287 ymax: 1626.778
+## Projected CRS: NAD_1983_StatePlane_Pennsylvania_North_FIPS_3701_Feet
+## First 10 features:
+##          GEOID                                                  NAME
+## 1  42101000200     Census Tract 2, Philadelphia County, Pennsylvania
+## 2  42101000500     Census Tract 5, Philadelphia County, Pennsylvania
+## 3  42101000901  Census Tract 9.01, Philadelphia County, Pennsylvania
+## 4  42101001002 Census Tract 10.02, Philadelphia County, Pennsylvania
+## 5  42101002000    Census Tract 20, Philadelphia County, Pennsylvania
+## 6  42101003901 Census Tract 39.01, Philadelphia County, Pennsylvania
+## 7  42101007102 Census Tract 71.02, Philadelphia County, Pennsylvania
+## 8  42101008701 Census Tract 87.01, Philadelphia County, Pennsylvania
+## 9  42101010200   Census Tract 102, Philadelphia County, Pennsylvania
+## 10 42101011500   Census Tract 115, Philadelphia County, Pennsylvania
+##    B25026_001E B25026_001M B02001_002E B02001_002M B15001_050E B15001_050M
+## 1         2479         424         698         196         145          90
+## 2         1375         124        1096         292          61          27
+## 3         1949         179        1452         209          96          49
+## 4         3259         264        3056         251          26          23
+## 5         2154         222         534         133           6           7
+## 6         6583         810        4597         840         124          91
+## 7         4944         740         174         127           7          10
+## 8         4356         499        2194         358         206         101
+## 9         3311         481           0          10           0          10
+## 10        4686         431         189          95           0          10
+##    B15001_009E B15001_009M B19013_001E B19013_001M B25058_001E B25058_001M
+## 1          113          62       30746        8706        1051         128
+## 2           55          45       42135       12885        1363         174
+## 3           39          30       42548        9262        1095          62
+## 4           15          14      109020       12211        1598         103
+## 5           39          40       41335        6339         841          47
+## 6           40          47       38301        3245         774          49
+## 7            0          10       31332        6631         708         101
+## 8          251         134       44225        4124         908          52
+## 9            0          10       18989        5279         486          79
+## 10          18          28       51155        4231         788          28
+##    B06012_002E B06012_002M                       geometry
+## 1          962         378 MULTIPOLYGON (((2694006 -65...
+## 2          536         107 MULTIPOLYGON (((2693289 -66...
+## 3          473         131 MULTIPOLYGON (((2693422 -69...
+## 4          211         163 MULTIPOLYGON (((2697524 -70...
+## 5          365         139 MULTIPOLYGON (((2686940 -72...
+## 6         1423         504 MULTIPOLYGON (((2690317 -78...
+## 7         1715         610 MULTIPOLYGON (((2674209 -72...
+## 8         1094         320 MULTIPOLYGON (((2679966 -68...
+## 9         1337         469 MULTIPOLYGON (((2673427 -61...
+## 10         739         315 MULTIPOLYGON (((2667564 -58...
+## Simple feature collection with 384 features and 16 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 2660774 ymin: -98728.57 xmax: 2750287 ymax: 1626.778
+## Projected CRS: NAD_1983_StatePlane_Pennsylvania_North_FIPS_3701_Feet
+## First 10 features:
+##          GEOID                                                  NAME TotalPop
+## 1  42101000200     Census Tract 2, Philadelphia County, Pennsylvania     2479
+## 2  42101000500     Census Tract 5, Philadelphia County, Pennsylvania     1375
+## 3  42101000901  Census Tract 9.01, Philadelphia County, Pennsylvania     1949
+## 4  42101001002 Census Tract 10.02, Philadelphia County, Pennsylvania     3259
+## 5  42101002000    Census Tract 20, Philadelphia County, Pennsylvania     2154
+## 6  42101003901 Census Tract 39.01, Philadelphia County, Pennsylvania     6583
+## 7  42101007102 Census Tract 71.02, Philadelphia County, Pennsylvania     4944
+## 8  42101008701 Census Tract 87.01, Philadelphia County, Pennsylvania     4356
+## 9  42101010200   Census Tract 102, Philadelphia County, Pennsylvania     3311
+## 10 42101011500   Census Tract 115, Philadelphia County, Pennsylvania     4686
+##    B25026_001M Whites B02001_002M FemaleBachelors B15001_050M MaleBachelors
+## 1          424    698         196             145          90           113
+## 2          124   1096         292              61          27            55
+## 3          179   1452         209              96          49            39
+## 4          264   3056         251              26          23            15
+## 5          222    534         133               6           7            39
+## 6          810   4597         840             124          91            40
+## 7          740    174         127               7          10             0
+## 8          499   2194         358             206         101           251
+## 9          481      0          10               0          10             0
+## 10         431    189          95               0          10            18
+##    B15001_009M MedHHInc B19013_001M MedRent B25058_001M TotalPoverty
+## 1           62    30746        8706    1051         128          962
+## 2           45    42135       12885    1363         174          536
+## 3           30    42548        9262    1095          62          473
+## 4           14   109020       12211    1598         103          211
+## 5           40    41335        6339     841          47          365
+## 6           47    38301        3245     774          49         1423
+## 7           10    31332        6631     708         101         1715
+## 8          134    44225        4124     908          52         1094
+## 9           10    18989        5279     486          79         1337
+## 10          28    51155        4231     788          28          739
+##    B06012_002M                       geometry
+## 1          378 MULTIPOLYGON (((2694006 -65...
+## 2          107 MULTIPOLYGON (((2693289 -66...
+## 3          131 MULTIPOLYGON (((2693422 -69...
+## 4          163 MULTIPOLYGON (((2697524 -70...
+## 5          139 MULTIPOLYGON (((2686940 -72...
+## 6          504 MULTIPOLYGON (((2690317 -78...
+## 7          610 MULTIPOLYGON (((2674209 -72...
+## 8          320 MULTIPOLYGON (((2679966 -68...
+## 9          469 MULTIPOLYGON (((2673427 -61...
+## 10         315 MULTIPOLYGON (((2667564 -58...
+## Simple feature collection with 384 features and 8 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 2660774 ymin: -98728.57 xmax: 2750287 ymax: 1626.778
+## Projected CRS: NAD_1983_StatePlane_Pennsylvania_North_FIPS_3701_Feet
+## First 10 features:
+##          GEOID TotalPop Whites FemaleBachelors MaleBachelors MedHHInc MedRent
+## 1  42101000200     2479    698             145           113    30746    1051
+## 2  42101000500     1375   1096              61            55    42135    1363
+## 3  42101000901     1949   1452              96            39    42548    1095
+## 4  42101001002     3259   3056              26            15   109020    1598
+## 5  42101002000     2154    534               6            39    41335     841
+## 6  42101003901     6583   4597             124            40    38301     774
+## 7  42101007102     4944    174               7             0    31332     708
+## 8  42101008701     4356   2194             206           251    44225     908
+## 9  42101010200     3311      0               0             0    18989     486
+## 10 42101011500     4686    189               0            18    51155     788
+##    TotalPoverty                       geometry
+## 1           962 MULTIPOLYGON (((2694006 -65...
+## 2           536 MULTIPOLYGON (((2693289 -66...
+## 3           473 MULTIPOLYGON (((2693422 -69...
+## 4           211 MULTIPOLYGON (((2697524 -70...
+## 5           365 MULTIPOLYGON (((2686940 -72...
+## 6          1423 MULTIPOLYGON (((2690317 -78...
+## 7          1715 MULTIPOLYGON (((2674209 -72...
+## 8          1094 MULTIPOLYGON (((2679966 -68...
+## 9          1337 MULTIPOLYGON (((2673427 -61...
+## 10          739 MULTIPOLYGON (((2667564 -58...
+## Simple feature collection with 384 features and 12 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 2660774 ymin: -98728.57 xmax: 2750287 ymax: 1626.778
+## Projected CRS: NAD_1983_StatePlane_Pennsylvania_North_FIPS_3701_Feet
+## First 10 features:
+##          GEOID TotalPop Whites FemaleBachelors MaleBachelors MedHHInc MedRent
+## 1  42101000200     2479    698             145           113    30746    1051
+## 2  42101000500     1375   1096              61            55    42135    1363
+## 3  42101000901     1949   1452              96            39    42548    1095
+## 4  42101001002     3259   3056              26            15   109020    1598
+## 5  42101002000     2154    534               6            39    41335     841
+## 6  42101003901     6583   4597             124            40    38301     774
+## 7  42101007102     4944    174               7             0    31332     708
+## 8  42101008701     4356   2194             206           251    44225     908
+## 9  42101010200     3311      0               0             0    18989     486
+## 10 42101011500     4686    189               0            18    51155     788
+##    TotalPoverty                       geometry   pctWhite pctBachelors
+## 1           962 MULTIPOLYGON (((2694006 -65... 0.28156515  0.104074223
+## 2           536 MULTIPOLYGON (((2693289 -66... 0.79709091  0.084363636
+## 3           473 MULTIPOLYGON (((2693422 -69... 0.74499743  0.069266290
+## 4           211 MULTIPOLYGON (((2697524 -70... 0.93771095  0.012580546
+## 5           365 MULTIPOLYGON (((2686940 -72... 0.24791086  0.020891365
+## 6          1423 MULTIPOLYGON (((2690317 -78... 0.69831384  0.024912654
+## 7          1715 MULTIPOLYGON (((2674209 -72... 0.03519417  0.001415858
+## 8          1094 MULTIPOLYGON (((2679966 -68... 0.50367309  0.104912764
+## 9          1337 MULTIPOLYGON (((2673427 -61... 0.00000000  0.000000000
+## 10          739 MULTIPOLYGON (((2667564 -58... 0.04033291  0.003841229
+##    pctPoverty year
+## 1  0.38805970 2017
+## 2  0.38981818 2017
+## 3  0.24268856 2017
+## 4  0.06474379 2017
+## 5  0.16945218 2017
+## 6  0.21616284 2017
+## 7  0.34688511 2017
+## 8  0.25114784 2017
+## 9  0.40380550 2017
+## 10 0.15770380 2017</code></pre>
+<pre class="r"><code>head(tracts17)</code></pre>
+<pre><code>## Simple feature collection with 6 features and 8 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: 2686791 ymin: -79202.01 xmax: 2699682 ymax: -65257.88
+## Projected CRS: NAD_1983_StatePlane_Pennsylvania_North_FIPS_3701_Feet
+##         GEOID TotalPop MedHHInc MedRent  pctWhite pctBachelors pctPoverty year
+## 1 42101000200     2479    30746    1051 0.2815651   0.10407422 0.38805970 2017
+## 2 42101000500     1375    42135    1363 0.7970909   0.08436364 0.38981818 2017
+## 3 42101000901     1949    42548    1095 0.7449974   0.06926629 0.24268856 2017
+## 4 42101001002     3259   109020    1598 0.9377110   0.01258055 0.06474379 2017
+## 5 42101002000     2154    41335     841 0.2479109   0.02089136 0.16945218 2017
+## 6 42101003901     6583    38301     774 0.6983138   0.02491265 0.21616284 2017
+##                         geometry
+## 1 MULTIPOLYGON (((2694006 -65...
+## 2 MULTIPOLYGON (((2693289 -66...
+## 3 MULTIPOLYGON (((2693422 -69...
+## 4 MULTIPOLYGON (((2697524 -70...
+## 5 MULTIPOLYGON (((2686940 -72...
+## 6 MULTIPOLYGON (((2690317 -78...</code></pre>
 </div>
 
 
