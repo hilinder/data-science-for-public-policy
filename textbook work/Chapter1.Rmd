@@ -244,6 +244,9 @@ now the textbook challenges us to create a side by side maps of the various sele
 ```{r}
 all_types_tracts00 <-
     rbind(clip,selection,selectCentroids)
+```
+imma set the size of the output. wasnt happy with the default
+```{r, fig.width=14}
 
 ggplot() + #creates the plot
   geom_sf(data=st_union(tracts00)) + #creates our city outline
