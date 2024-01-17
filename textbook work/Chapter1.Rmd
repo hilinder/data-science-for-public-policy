@@ -120,6 +120,17 @@ tracts00 <-
 
 st_drop_geometry(tracts00)[1:3,]
 ```
+lets change our data to wide format 
+```{r}
+tracts00 <- 
+  tracts00 %>%
+  mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop, 0),
+         pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop), 0),
+         pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
+         year = "2000") %>%
+  dplyr::select(-Whites,-FemaleBachelors,-MaleBachelors,-TotalPoverty)
+```
+
 now we are going to query 2017 acs data to match our 2000 data. I am going to change the code from the textbook so that we can see the data change which each line of code.
 ```{r}
 tracts17 <- 
@@ -127,23 +138,121 @@ tracts17 <-
                                              "B15001_009E","B19013_001E","B25058_001E",
                                              "B06012_002E"), 
           year=2017, state=42, county=101, geometry=T, output="wide") %>%
+    #the above code specifies the query from the census API, note that more than just the specified variables are generated as columns. I'm not sure what the additional variables represent.
     print() %>%
   st_transform('ESRI:102728') %>%
+    # changes the CRS to what we have been using
     print() %>%
   rename(TotalPop = B25026_001E, Whites = B02001_002E,
          FemaleBachelors = B15001_050E, MaleBachelors = B15001_009E,
          MedHHInc = B19013_001E, MedRent = B25058_001E,
          TotalPoverty = B06012_002E) %>%
+    #names our columns 
     print() %>%
   dplyr::select(-NAME, -starts_with("B")) %>%
+    #removes names and all the columns that start with "b". all the variable codes start with b, so any columns that we didnt name get deleted
     print() %>%
   mutate(pctWhite = ifelse(TotalPop > 0, Whites / TotalPop,0),
          pctBachelors = ifelse(TotalPop > 0, ((FemaleBachelors + MaleBachelors) / TotalPop),0),
          pctPoverty = ifelse(TotalPop > 0, TotalPoverty / TotalPop, 0),
          year = "2017") %>%
+    #calculates our statistics of interest as a rate instead of a count. we use ifelse functions to account for cases in which we have 0 numerator or denominator. that could be a result of incomplete data.
     print() %>%
   dplyr::select(-Whites, -FemaleBachelors, -MaleBachelors, -TotalPoverty) 
+    #removes the selected columns. the - operator specifies that we want everything besides the specified columns
 head(tracts17)
 ```
+now we are going to combine our two data sets, one from 2000, one from 2017, together
+```{r}
+allTracts <- rbind(tracts00,tracts17)
+```
+## philly transit open data
+from the textbook: The code below downloads and binds together El and Broad St. station locations into a single layer, septaStops. st_read downloads the data in geojson form (with geometries) from the web. A Line field is generated and selected along with the Station field. Lastly, the data is projected into the same coordinate system as tracts00.
+```{r}
+septaStops <- 
+  rbind(
+    st_read("https://opendata.arcgis.com/datasets/8c6e2575c8ad46eb887e6bb35825e1a6_0.geojson") %>% 
+    mutate(Line = "El") %>% #this line adds the label 'El' to a newly created "Line" Column 
+    select(Station, Line),
+      st_read("https://opendata.arcgis.com/datasets/2e9037fd5bef406488ffe5bb67d21312_0.geojson") %>%
+      mutate(Line ="Broad_St") %>%
+      select(Station, Line)) %>%
+   st_transform(st_crs(tracts00))  #note how you can call the crs from the tracts00 dataframe using str_crs
+```
+lets map our stops onto the city
+```{r}
+ggplot() + #creates the plot
+  geom_sf(data=st_union(tracts00)) + #adds the dissolved tract boundaries city map as a layer
+  geom_sf(data=septaStops, aes(colour = Line), show.legend = "point", size= 2) + # adds the septaStops as a layer to the map with different colors for each of the values in the Line column
+  scale_colour_manual(values = c("orange","blue")) +
+  labs(title="Septa Stops", subtitle="Philadelphia, PA") +
+  mapTheme()
+```
 
+
+now we are going to create "buffer" areas around each stop to be considered as transit oriented areas
+```{r}
+septaBuffers <- 
+  rbind(
+    st_buffer(septaStops, 2640) %>% # creates the buffers of 2640 feet (1/2 mile).
+      mutate(Legend = "Buffer") %>% # creates legend column with a buffer label for each stop buffer
+      dplyr::select(Legend), #selects only the legend column along with the geometry to remain in the dataframe
+    st_union(st_buffer(septaStops, 2640)) %>% 
+      st_sf() %>% #this function is for some reason needed to convert the union transit areas created with the last line into an sf layer
+      mutate(Legend = "Unioned Buffer"))
+
+ggplot() +
+  geom_sf(data=septaBuffers) +
+  geom_sf(data=septaStops, show.legend = "point") +
+  facet_wrap(~Legend) + #facet wrap can only be performed on long data
+  mapTheme()
+```
+
+now we need to select which tracts constitute part of the trasit oriented area. there are three methods that the book discusses for selecting tracts. The first is clipping, which selects the interesections of the tract and the buffer. This is problematic because the data for each tract aligns with the whole tract and its unclear how the clipping method divides the other variables if at all after subtracting area.
+```{r}
+buffer <- filter(septaBuffers, Legend=="Unioned Buffer")
+
+clip <- 
+  st_intersection(buffer, tracts00) %>%
+    dplyr::select(TotalPop) %>%
+    mutate(Selection_Type = "Clip")
+```
+
+the next method is to select any geometries that intersect with the buffer
+```{r}
+selection <- 
+  tracts00[buffer,] %>%
+    dplyr::select(TotalPop) %>%
+    mutate(Selection_Type = "Spatial Selection")
+```
+
+and the last method is to choose all tracts of which's "center of gravity" fall within the buffer. you imigane the ceter of gravity as at what point you would need to put your finger to balance the shape atop of it. This is the preffered method of the author.
+```{r}
+selectCentroids <-
+  st_centroid(tracts00)[buffer,] %>% #creates centroid point geometry for tracts whose centroid is within the buffer
+print() %>%
+    st_drop_geometry() %>% #this converts the sf into a dataframe to allow for it to be joined back with the original sf. I think that this is necessary because there cannot be more than one geometry per row in an sf
+print() %>%
+    left_join(dplyr::select(tracts00, GEOID)) %>% #this joins the two data frames by the unique geoids. so it seems that since our centroid frame is the first variable, we get only matches that exist from that frame. and what we are matching it to is only the GEOID from tracts00. since tracts is a sf it seems like you are unable to select away the geometry
+print() %>%
+    st_sf() %>% # converts dataframe back to sf
+    dplyr::select(TotalPop) %>% #for some reason we only want total population
+    mutate(Selection_Type = "Select by Centroids") #creates the select by centroids value in the Selection_type column. this will be useful for the side by side map we are going to create
+print(selectCentroids)
+```
+now the textbook challenges us to create a side by side maps of the various selection types using the facet_wrap layer tool from earlier
+```{r}
+all_types_tracts00 <-
+    rbind(clip,selection,selectCentroids)
+
+ggplot() + #creates the plot
+  geom_sf(data=st_union(tracts00)) + #creates our city outline
+     geom_sf(data = all_types_tracts00, aes(fill = q5(TotalPop))) +
+  scale_fill_manual(values = palette5,
+                    labels = qBr(all_types_tracts00, "TotalPop"),
+                    name = "Popluation\n(Quintile Breaks)") +
+  labs(title = "Total Population", subtitle = "Philadelphia; 2000") +
+facet_wrap(~Selection_Type) +
+  mapTheme()
+```
 
