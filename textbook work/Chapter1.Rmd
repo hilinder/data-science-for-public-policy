@@ -274,4 +274,18 @@ allTracts.group <-
       mutate(TOD = "Non-TOD")) %>% #labels every tract not in the buffer as non TOD
   mutate(MedRent.inf = ifelse(year == "2000", MedRent * 1.42, MedRent)) # multiplies all the year 2000 rents by inflation
 ```
+now the textbook is giving us an excercise to recreate a map
+```{r, fig.width=17}
+
+ggplot() + #creates the plot
+  geom_sf(data=st_union(allTracts.group)) + #creates our city outline
+     geom_sf(data = allTracts.group, aes(fill = q5(MedRent.inf)), colour = NA) + # creates of visualization of the rents by tract
+  scale_fill_manual(values = palette5, # choosing fill colors and other aesthetic attributes
+                    labels = qBr(allTracts.group, "MedRent"),
+                    name = "Rent\n(Quintile Breaks)") +
+    geom_sf(data = buffer, fill = "grey", color = "red", alpha = 0.3) + # creates the buffer layer
+  labs(title = "Median Rent", subtitle = "Real dollars: red borders denote buffer areas around subway stops") +
+facet_wrap(~year) +
+  mapTheme()
+```
 
