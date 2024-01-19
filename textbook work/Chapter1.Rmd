@@ -288,4 +288,46 @@ ggplot() + #creates the plot
 facet_wrap(~year) +
   mapTheme()
 ```
+now that we have created our visual aid, we wanna do some comparisons in other formats including tables
+```{r}
+allTracts.Summary <- 
+  st_drop_geometry(allTracts.group) %>%
+    group_by(year, TOD) %>%
+    summarize(Rent = mean(MedRent, na.rm = T), #the summarize function creates one row for each combination of grouping variable
+              Population = mean(TotalPop, na.rm = T), # we are manually specifiyinging our rows and calculations to be done in each row
+              Percent_White = mean(pctWhite, na.rm = T),
+              Percent_Bach = mean(pctBachelors, na.rm = T),
+              Percent_Poverty = mean(pctPoverty, na.rm = T))
+
+kable(allTracts.Summary) %>%
+  kable_styling() %>%
+  footnote(general_title = "\n",
+           general = "Table 1.2")
+```
+now we are gonna take our data frame and inverse it to see the variables as the rows
+```{r}
+allTracts.Summary %>%
+  unite(year.TOD, year, TOD, sep = ": ", remove = T) %>% # creates a new column that unites year and TOD. Remove option removes the old columns I imagine
+    print() %>%
+  gather(Variable, Value, -year.TOD) %>% # converts our data to long format. year.TOD is our "grouping variable", "variable" is the key, and "value" is the value. in practice when using the gather function, the grouping variable column is the column that stays put in the dataframe. It's the variable that the other variables get organized around. the key variable is what we call the new column that is made up of a stack of all the other variable that are not the grouping variable. the - sign denotes that we are excluding a variable from being gathered.
+     print() %>%
+  mutate(Value = round(Value, 2)) %>%
+  spread(year.TOD, Value) %>% # this inverts our table, spreading year.TOD into separate columns alongside a Variable column that now has unique values for each row. Value is specified as the column to appear as values in the matrix
+  kable() %>%
+    kable_styling() %>%
+    footnote(general_title = "\n",
+             general = "Table 1.3")
+```
+now the textbook shows us how to display this data as bar plots
+```{r}
+allTracts.Summary %>%
+  gather(Variable, Value, -year, -TOD) %>% # gather our data leaving both year and TOD as grouping variables
+  ggplot(aes(year, Value, fill = TOD)) + # graph year on the x axis and value on the y axis, and specifies that we are filling the bars based on the two TOD groups
+    geom_bar(stat = "identity", position = "dodge") +
+    facet_wrap(~Variable, scales = "free", ncol=5) + #specifies that we want separare plots for each of the variables
+    scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
+    labs(title = "Indicator differences across time and space") +
+    plotTheme() + theme(legend.position="bottom")
+```
+
 
