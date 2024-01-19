@@ -258,4 +258,20 @@ ggplot() + #creates the plot
 facet_wrap(~Selection_Type) +
   mapTheme()
 ```
+the below code redoes our centroid approach and labels those tracts whose centroid falls into the buffer as transit oriented development. It label those tracts that do not fall into the buffer as non TOD. 
+```{r}
+allTracts.group <- 
+  rbind( #since left join takes the first argument as the total number of rows, we need to bind the two subsets of the full datset on to of each other.
+    st_centroid(allTracts)[buffer,] %>% #selects the tracts whose centroids fall in the buffer
+      st_drop_geometry() %>% # drops the geometry to allow easier manipulation as a dataframe or maybe you just cant have two geometries per sf 
+      left_join(allTracts) %>% #joins the missing data in our centroid tract data to the data from allTracts. this command outomatically matches columns to prevent duplication
+      st_sf() %>% #converts that data to an sf
+      mutate(TOD = "TOD"), #creates the TOD column and labels all the current data as TOD, not the comma. everything this line and above is the first argument of rbind
+    st_centroid(allTracts)[buffer, op = st_disjoint] %>% # the disjoint option basically inverses the command so that we select all tracts that are not in buffer
+      st_drop_geometry() %>%
+      left_join(allTracts) %>%
+      st_sf() %>%
+      mutate(TOD = "Non-TOD")) %>% #labels every tract not in the buffer as non TOD
+  mutate(MedRent.inf = ifelse(year == "2000", MedRent * 1.42, MedRent)) # multiplies all the year 2000 rents by inflation
+```
 
