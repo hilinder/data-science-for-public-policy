@@ -327,7 +327,47 @@ allTracts.Summary %>%
     facet_wrap(~Variable, scales = "free", ncol=5) + #specifies that we want separare plots for each of the variables
     scale_fill_manual(values = c("#bae4bc", "#0868ac")) +
     labs(title = "Indicator differences across time and space") +
-    plotTheme() + theme(legend.position="bottom")
+    plotTheme() + theme(legend.position="bottom",
+                        strip.text.x = element_text(size = 10)) # changes the size of the strip labels at the top of each plot.
 ```
+ now the textbook creates 3 submarkets. One for the center of the city and one for each subway line. we want to see if the central city has had a disproportionate increase in rental prices compared to the other transit oriented development areas. if so, we may conclude that the increase at the center of the city skewed or TOD data.
+```{r}
+centerCity <-
+  st_intersection( #creates a layer that only includes the intersecting buffers of the two subway lines
+    st_buffer(filter(septaStops, Line == "El"), 2640) %>% st_union(), #we start from our union of points sf layer. so we first create a buffer for both separate lines
+    st_buffer(filter(septaStops, Line == "Broad_St"), 2640) %>% st_union()) %>%
+      st_sf() %>% #converts to sf layer. not sure why this is necessary since we never dropped geometry
+      mutate(Submarket = "Center City") #creates a column in our sf called submarket that is labelled City Center.
 
+el <-
+  st_buffer(filter(septaStops, Line == "El"), 2640) %>% st_union() %>%
+    st_sf() %>%
+    st_difference(centerCity) %>% #erases any portion of the layer that overlaps with the city center
+    mutate(Submarket = "El")
+    
+broad.st <-
+  st_buffer(filter(septaStops, Line == "Broad_St"), 2640) %>% st_union() %>%
+    st_sf() %>%
+    st_difference(centerCity) %>%
+    mutate(Submarket = "Broad Street")
+    
+threeMarkets <- rbind(el, broad.st, centerCity) #stacks the three separate sfs on top of each other
+```
+ now we are going to assign all our tracts to three 4 categories (central city, el, non tod.. etc) based on what buffer each centroid falls in.
+```{r}
+allTracts.threeMarkets <-
+  st_join(st_centroid(allTracts), threeMarkets) %>% # st_join joins two separate sf's together. in this case it joins threemarkets to the left of alltracts based on which market buffer from threemarkets each centroid from alltracts falls into. the geomtry that is kept is the centroid from alltracts  
+  st_drop_geometry() %>% # drops the centroid geometry
+  left_join(allTracts) %>% #joins alltracts to the left of what we are left with from the above code matching columns automatically. essentially, we are just getting the geometries from allTracts
+  mutate(Submarket = replace_na(Submarket, "Non-TOD")) %>% #replaces all the na's in the submarket column with "Non-TOD"
+  st_sf() 
+```
+ It doesnt give us the code to graph the separate markets so let's try to do it oursevles
+```{r}
+ggplot() + #creates the plot
+  geom_sf(data=st_union(allTracts.threeMarkets)) + #creates our city outline
+     geom_sf(data = allTracts.threeMarkets, aes(fill = Submarket)) +
+  mapTheme()
+```
+ 
 
