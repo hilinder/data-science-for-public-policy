@@ -11,7 +11,7 @@
 
 <meta name="author" content="Harrison Linder" />
 
-<meta name="date" content="2024-01-24" />
+<meta name="date" content="2024-01-26" />
 
 <title>Chapter 1 self project</title>
 
@@ -352,34 +352,41 @@ display: none;
 
 <h1 class="title toc-ignore">Chapter 1 self project</h1>
 <h4 class="author">Harrison Linder</h4>
-<h4 class="date">2024-01-24</h4>
+<h4 class="date">2024-01-26</h4>
 
 </div>
 
 
-<p>#Objective In the first chapter of Data Science For Public Policy, I
-learned how to work with spatial census data in R. Through the
-excercises, we queried acs census tract level demographic and economic
-data from philidelphia and paired it with philidelphia’s public transit
-system spatial data to see if people were willing to pay a premium to
-live in transit oriented development.</p>
+<div id="objective" class="section level2">
+<h2>Objective</h2>
+<p>In the first chapter of Data Science For Public Policy, I learned how
+to work with spatial census data in R. Through the excercises, we
+queried acs census tract level demographic and economic data from
+philidelphia and paired it with philidelphia’s public transit system
+spatial data to see if people were willing to pay a premium to live in
+transit oriented development.</p>
 <p>For my own personal analysis, I want observe the relationship between
 bike lanes and various demograpic statistics in Sacramento California,
-where I live. similar to the analysis in the textbook. I don’t think
+where I live. Similar to the analysis in the textbook. I don’t think
 I’ll confidently be able to infer any causation. But, I believe that I
 will find that areas with more bike lanes will have a higher percentage
 of working age young adults living nearby, and possibly an increasing
 number of working age young adults living nearby over time. I also plant
 to look at statistics like average rent, percent bachelors degree and
 more.</p>
-<p>Some challenges I forsee are that my bike lane data is for the city
-of Sacramento while the census data is for the county. I am going to
-need to find a way to limit census data to the city as well. I think I
-may need to do this by getting a third layer that constitutes a city map
-and clipping my county data.</p>
-<p>I think that one of the hardest things as well will be to accurately
-choose the variables I need from the census data</p>
-<pre class="r"><code>library(tidyverse)</code></pre>
+<p>I also want to see the relationship of home values, rents, and crime
+with the prevalence of affordable housing in a neighborhood. One of the
+most typical arguments of a NIMBY homeowner is that having affordable
+housing will bring down their home value. Another argument is that it
+will bring criminals and therefore crime into their neighborhoods. I
+imagine that there may potentially be some truth to the first point,
+though very marginal. I have greater doubts about the second point.
+Let’s see! to fully do this analysis, I will likely need to utilize a
+dif in dif test. I imagine we will go over this in later chapters.</p>
+<p>Working with data outside the scope of the textbook is a learning
+experience in and of itself. below I am going to do my best to document
+everything that I’ve learned and the problems I had to solve.</p>
+<pre class="r"><code>library(tidyverse) </code></pre>
 <pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
 ## ✔ dplyr     1.1.4     ✔ readr     2.1.5
 ## ✔ forcats   1.0.0     ✔ stringr   1.5.1
@@ -400,8 +407,259 @@ library(sf)</code></pre>
 ## The following object is masked from &#39;package:dplyr&#39;:
 ## 
 ##     group_rows</code></pre>
-<pre class="r"><code>options(scipen=999)
-options(tigris_class = &quot;sf&quot;)</code></pre>
+<pre class="r"><code>options(scipen=999) #says no scientific notation
+options(tigris_class = &quot;sf&quot;) # tells tidycensus to download in sf layers
+#hopefully this will be all the packages I need</code></pre>
+<pre class="r"><code>census_api_key(&quot;c08e727b3d32b823955aea424744c9dda3b30df0&quot;, install = TRUE, overwrite = TRUE)</code></pre>
+<pre><code>## Your original .Renviron will be backed up and stored in your R HOME directory if needed.</code></pre>
+<pre><code>## Your API key has been stored in your .Renviron and can be accessed by Sys.getenv(&quot;CENSUS_API_KEY&quot;). 
+## To use now, restart R or run `readRenviron(&quot;~/.Renviron&quot;)`</code></pre>
+<pre><code>## [1] &quot;c08e727b3d32b823955aea424744c9dda3b30df0&quot;</code></pre>
+<pre class="r"><code># readRenviron(&quot;~/.Renviron&quot;) is for some reason needed for the api to be active in the current session 
+readRenviron(&quot;~/.Renviron&quot;)
+#making sure that my api key for the census is working</code></pre>
+</div>
+<div id="working-with-the-census-data-api-is-not-super-intuitive" class="section level2">
+<h2>working with the census data api is not super intuitive!</h2>
+<p>It’s been frustrating trying to figure out the best way to understand
+what each variable code name really stands for. there is no website it
+seems that lays out in an intuitive key for the variable code names.
+Additionally, I could not find a simple way to find comprehensive
+metadata for each dataset.</p>
+<p>The best way to find the right variables seems to be to use the
+<code>load_variables</code> function. for the <code>dataset</code>
+argument, you have to do your best to guess the correct option. for some
+it’s easier than others. For example, it’s intuitively obvious that the
+<code>&quot;acs1&quot;</code> option corresponds to the 1 year ACS. However, I’d
+have to do some internet digging to figure out what the hell the
+<code>&quot;cd110h&quot;</code> dataset is.</p>
+<p>Anyway, once you’ve loaded your variables, it seems the best way to
+find the exact variable you’re looking is by using text search within
+the table. So, for example, if you want to use the American Community
+Survey 1 year estimates from 2021, you would use the code below to load
+the full detailed list of variables into the viewing pane in the top
+left.</p>
+<pre class="r"><code>view(load_variables(2021, &quot;acs1&quot;))</code></pre>
+<p>now that we have this table loaded, we notice that we have three
+columns: name, label, and concept.</p>
+<p>Name is the variable code name corresponding to the variable column
+that is returned be returned in the <code>get_acs</code> function.</p>
+<p>Concept I believe represents the census “table” that the variable
+described in the label column belongs to. when you go to <a href="https://data.census.gov/">data.census.gov</a> you will find a
+variety of “tables” containing variables of particular category. For
+example, the table called “AGE AND SEX” contains statistics on, you
+guessed it, age and sex. the Concept column corresponds to these
+tables.</p>
+<p>As you may have guessed, certain statistics repeat across tables. For
+example, a lot of tables include a total population row. When we
+<code>load_variables</code>, we come across some statistics that repeat
+in multiple tables and thus have multiple rows with multiple code names
+but have the same value. I checked to make sure this was true by loading
+multiple instances of statistics labelled total population. below is a
+<code>get_acs</code> call to return the median rent of the total
+population (Estimate!!Median gross rent –!!Total:) in Sacramento County
+from both the MEDIAN GROSS RENT BY BEDROOMS concept/table as well as the
+median rent of the total population (Estimate!!Median gross rent
+–!!Total:) from the MEDIAN GROSS RENT BY YEAR STRUCTURE BUILT
+concept/table. As you will see below, these two variables return the
+same exact value.</p>
+<pre class="r"><code>print(
+    get_acs(geography = &quot;county&quot;,
+            state = &quot;CA&quot;,
+            county = &quot;Sacramento&quot;,
+            geometry = TRUE,
+            year = 2021, survey = &quot;acs1&quot;,
+            variables = c(&quot;B25031_001&quot;, &quot;B25111_001&quot;)
+           )
+     )</code></pre>
+<pre><code>## Getting data from the 2021 1-year ACS</code></pre>
+<pre><code>## The 1-year ACS provides data for geographies with populations of 65,000 and greater.</code></pre>
+<pre><code>## Downloading feature geometry from the Census website.  To cache shapefiles for use in future sessions, set `options(tigris_use_cache = TRUE)`.</code></pre>
+<pre><code>## 
+  |                                                                            
+  |                                                                      |   0%
+  |                                                                            
+  |                                                                      |   1%
+  |                                                                            
+  |=                                                                     |   1%
+  |                                                                            
+  |=                                                                     |   2%
+  |                                                                            
+  |==                                                                    |   2%
+  |                                                                            
+  |==                                                                    |   3%
+  |                                                                            
+  |===                                                                   |   4%
+  |                                                                            
+  |===                                                                   |   5%
+  |                                                                            
+  |====                                                                  |   6%
+  |                                                                            
+  |=======                                                               |  10%
+  |                                                                            
+  |=========                                                             |  12%
+  |                                                                            
+  |=========                                                             |  13%
+  |                                                                            
+  |==========                                                            |  14%
+  |                                                                            
+  |==========                                                            |  15%
+  |                                                                            
+  |===========                                                           |  15%
+  |                                                                            
+  |===========                                                           |  16%
+  |                                                                            
+  |==============                                                        |  19%
+  |                                                                            
+  |==============                                                        |  20%
+  |                                                                            
+  |===============                                                       |  22%
+  |                                                                            
+  |================                                                      |  23%
+  |                                                                            
+  |=================                                                     |  24%
+  |                                                                            
+  |==================                                                    |  26%
+  |                                                                            
+  |===================                                                   |  27%
+  |                                                                            
+  |====================                                                  |  28%
+  |                                                                            
+  |======================                                                |  31%
+  |                                                                            
+  |========================                                              |  34%
+  |                                                                            
+  |==============================                                        |  43%
+  |                                                                            
+  |===============================                                       |  45%
+  |                                                                            
+  |================================                                      |  45%
+  |                                                                            
+  |=======================================                               |  56%
+  |                                                                            
+  |========================================                              |  57%
+  |                                                                            
+  |=========================================                             |  58%
+  |                                                                            
+  |=========================================                             |  59%
+  |                                                                            
+  |============================================                          |  63%
+  |                                                                            
+  |====================================================                  |  74%
+  |                                                                            
+  |======================================================                |  76%
+  |                                                                            
+  |=======================================================               |  78%
+  |                                                                            
+  |=======================================================               |  79%
+  |                                                                            
+  |========================================================              |  80%
+  |                                                                            
+  |==========================================================            |  82%
+  |                                                                            
+  |================================================================      |  92%
+  |                                                                            
+  |==================================================================    |  94%
+  |                                                                            
+  |======================================================================| 100%
+## Simple feature collection with 2 features and 5 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: -121.8625 ymin: 38.01842 xmax: -121.0271 ymax: 38.7364
+## Geodetic CRS:  NAD83
+##   GEOID                          NAME   variable estimate moe
+## 1 06067 Sacramento County, California B25031_001     1512  27
+## 2 06067 Sacramento County, California B25111_001     1512  27
+##                         geometry
+## 1 MULTIPOLYGON (((-121.8625 3...
+## 2 MULTIPOLYGON (((-121.8625 3...</code></pre>
+<p>Now let’s check a different variable. I am going to check the total
+population variable since it appears so often across tables. In one
+instance I see that there is a variable Name:B01003_001 Label:
+Estimate!!Total concept: TOTAL POPULATION I am quite confident that this
+represents the estimate for the total population</p>
+<p>I also see a variable B25008_001 Estimate!!Total: TOTAL POPULATION IN
+OCCUPIED HOUSING UNITS BY TENURE</p>
+<p>I’m going to guess that despite having the same label and similar
+concepts that these statistics will yield two different values. This is
+because not everyone in an area will be in “occupied housing”, whatever
+that means. I’m guessing that just means not homeless. lets see what we
+get</p>
+<pre class="r"><code>print(
+    get_acs(geography = &quot;county&quot;,
+            state = &quot;CA&quot;,
+            county = &quot;Sacramento&quot;,
+            geometry = TRUE,
+            year = 2021, survey = &quot;acs1&quot;,
+            variables = c(&quot;B01003_001&quot;, &quot;B25008_001&quot;)
+           )
+     )</code></pre>
+<pre><code>## Getting data from the 2021 1-year ACS</code></pre>
+<pre><code>## The 1-year ACS provides data for geographies with populations of 65,000 and greater.</code></pre>
+<pre><code>## Downloading feature geometry from the Census website.  To cache shapefiles for use in future sessions, set `options(tigris_use_cache = TRUE)`.</code></pre>
+<pre><code>## Simple feature collection with 2 features and 5 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: -121.8625 ymin: 38.01842 xmax: -121.0271 ymax: 38.7364
+## Geodetic CRS:  NAD83
+##   GEOID                          NAME   variable estimate  moe
+## 1 06067 Sacramento County, California B01003_001  1588921   NA
+## 2 06067 Sacramento County, California B25008_001  1563704 5415
+##                         geometry
+## 1 MULTIPOLYGON (((-121.8625 3...
+## 2 MULTIPOLYGON (((-121.8625 3...</code></pre>
+<p>Well, that’s about what I expected. we get an estimate of 1.58 mil
+for the total population and 1.56 mil for the total population in
+occupied housing.</p>
+<p>What about this variable?: B01001_001 Estimate!!Total: SEX BY AGE</p>
+<p>We can infer that this variable is from the SEX BY AGE table. We can
+infer that its an estimate of a total of something. What is that
+something? Sexes? unlikely, I think that this is also a variable
+representing the total population. I am guessing this because if you
+were accessing the SEX BY AGE data on the census website, the table
+would likely give a row with the total population for the user to use as
+a comparison tool. let’s test my hypothesis by querying it alongside the
+total population variable for comparison.</p>
+<pre class="r"><code>print(
+    get_acs(geography = &quot;county&quot;,
+            state = &quot;CA&quot;,
+            county = &quot;Sacramento&quot;,
+            geometry = TRUE,
+            year = 2021, survey = &quot;acs1&quot;,
+            variables = c(&quot;B01003_001&quot;, &quot;B01001_001&quot;)
+           )
+     )</code></pre>
+<pre><code>## Getting data from the 2021 1-year ACS</code></pre>
+<pre><code>## The 1-year ACS provides data for geographies with populations of 65,000 and greater.</code></pre>
+<pre><code>## Downloading feature geometry from the Census website.  To cache shapefiles for use in future sessions, set `options(tigris_use_cache = TRUE)`.</code></pre>
+<pre><code>## Simple feature collection with 2 features and 5 fields
+## Geometry type: MULTIPOLYGON
+## Dimension:     XY
+## Bounding box:  xmin: -121.8625 ymin: 38.01842 xmax: -121.0271 ymax: 38.7364
+## Geodetic CRS:  NAD83
+##   GEOID                          NAME   variable estimate moe
+## 1 06067 Sacramento County, California B01001_001  1588921  NA
+## 2 06067 Sacramento County, California B01003_001  1588921  NA
+##                         geometry
+## 1 MULTIPOLYGON (((-121.8625 3...
+## 2 MULTIPOLYGON (((-121.8625 3...</code></pre>
+<p>Just as I suspected, these are the same variable. So, why was I
+confident that Estimate!!Total: from SEX BY AGE would be the total
+population while Estimate!!Total: from TOTAL POPULATION IN OCCUPIED
+HOUSING UNITS BY TENURE would not? What made me confident was the fact
+that there was no other rows in the occupied housing table that could
+have conceivably represent any sort of total population. I relied on
+subtle context clues. Why wouldn’t someone interested in occupied
+housing want to compare the total population of those in occupied
+housing to the total population in any housing situation? No idea. I
+feel like that a total overall population would fit naturally into the
+occupied housing table. To my point…it’s not very intuitive.</p>
+</div>
+<div id="other-challenges" class="section level2">
+<h2>other challenges</h2>
+<p>I want to just analyze sacramento city, but I am not sure if that is
+an available geography in the acs. lets see. above, I</p>
+</div>
 
 
 
