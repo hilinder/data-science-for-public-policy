@@ -19,6 +19,7 @@ library(tidyverse)
 library(tidycensus)
 library(sf)
 library(kableExtra)
+library(ggplot2)
 
 options(scipen=999) #says no scientific notation
 options(tigris_class = "sf") # tells tidycensus to download in sf layers
@@ -36,7 +37,7 @@ It's been frustrating trying to figure out the best way to understand what each 
 
 The best way to find the right variables seems to be to use the `load_variables` function. for the `dataset` argument, you have to do your best to guess the correct option. for some it's easier than others. For example, it's intuitively obvious that the `"acs1"` option corresponds to the 1 year ACS. However, I'd have to do some internet digging to figure out what the hell the `"cd110h"` dataset is.
 
-Anyway, once you've loaded your variables, it seems the best way to find the exact variable you're looking is by using text search within the table. So, for example, if you want to use the American Community Survey 1 year estimates from 2021, you would use the code below to load the full detailed list of variables into the viewing pane in the top left.
+Anyway, once you've loaded your variables, it seems the best way to find the exact variable you're looking for is by using text search within the table. So, for example, if you want to use the American Community Survey 1 year estimates from 2021, you would use the code below to load the full detailed list of variables into the viewing pane in the top left.
 ```{r}
 view(load_variables(2021, "acs1"))
 ```
@@ -44,9 +45,9 @@ now that we have this table loaded, we notice that we have three columns: name, 
 
 Name is the variable code name corresponding to the variable column that is returned be returned in the `get_acs` function.
 
-Concept I believe represents the census "table" that the variable described in the label column belongs to. when you go to [data.census.gov](https://data.census.gov/) you will find a variety of "tables" containing variables of particular category. For example, the table called "AGE AND SEX" contains statistics on, you guessed it, age and sex. the Concept column corresponds to these tables.
+Concept I believe represents the census "table" that the variable described in the label column belongs to. When you go to [data.census.gov](https://data.census.gov/), you will find a variety of "tables" containing variables of particular categories. For example, the table called "AGE AND SEX" contains statistics on, you guessed it, age and sex. the Concept column corresponds to these table names.
 
-As you may have guessed, certain statistics repeat across tables. For example, a lot of tables include a total population row. When we `load_variables`, we come across some statistics that repeat in multiple tables and thus have multiple rows with multiple code names but have the same value. I checked to make sure this was true by loading multiple instances of statistics labelled total population. below is a `get_acs` call to return the median rent of the total population (Estimate!!Median gross rent --!!Total:) in Sacramento County from both the MEDIAN GROSS RENT BY BEDROOMS concept/table as well as the median rent of the total population (Estimate!!Median gross rent --!!Total:) from the MEDIAN GROSS RENT BY YEAR STRUCTURE BUILT concept/table. As you will see below, these two variables return the same exact value.
+Certain statistics repeat across tables. For example, a lot of tables include a total population row. For comparison purposes, you probably want to see the total population of an area when you're looking at a table of AGE BY SEX as well something like employment. So, it makes sense for total population to repeat. When we `load_variables`, unless we specify a particular table as an argument, we load multiple tables. And, because some statistics repeat across tables, we will have multiple rows with the same statistic. Confusingly, Each table is made up by variables with unique codenames. I checked to make sure this was true by loading multiple instances of statistics that appeared to represent the same thing. below is a `get_acs` call to return the median rent of the total population (Estimate!!Median gross rent --!!Total:) in Sacramento County from both the MEDIAN GROSS RENT BY BEDROOMS concept/table as well as the median rent of the total population (Estimate!!Median gross rent --!!Total:) from the MEDIAN GROSS RENT BY YEAR STRUCTURE BUILT concept/table. As you will see below, these two variables return the same exact value.
 ```{r}
 print(
     get_acs(geography = "county",
@@ -58,17 +59,17 @@ print(
            )
      )
 ```
-Now let's check a different variable. I am going to check the total population variable since it appears so often across tables. In one instance I see that there is a variable Name:B01003_001
+Now let's check a different variable. I am going to check the total population variable since it appears so often across tables. In one instance I see that there is this variable: Name:B01003_001
 Label: Estimate!!Total
 concept: TOTAL POPULATION
-I am quite confident that this represents the estimate for the total population
+I am quite confident that this represents the estimate for the total population. the concept/table being called TOTAL POPULATION makes me quite confident
 
 I also see a variable 
 B25008_001
 Estimate!!Total:
 TOTAL POPULATION IN OCCUPIED HOUSING UNITS BY TENURE
 
-I'm going to guess that despite having the same label and similar concepts that these statistics will yield two different values. This is because not everyone in an area will be in "occupied housing", whatever that means. I'm guessing that just means not homeless. lets see what we get
+I'm going to guess that despite having the same label and similar concepts that these are different statistics with two different values. This is because not everyone in an area will be in "occupied housing", whatever that means. I'm guessing that just means not homeless. lets see what we get
 ```{r}
 print(
     get_acs(geography = "county",
@@ -102,5 +103,120 @@ print(
 Just as I suspected, these are the same variable. So, why was I confident that Estimate!!Total: from SEX BY AGE  would be the total population while Estimate!!Total: from TOTAL POPULATION IN OCCUPIED HOUSING UNITS BY TENURE would not? What made me confident was the fact that there was no other rows in the occupied housing table that could have conceivably represent any sort of total population. I relied on subtle context clues. Why wouldn't someone interested in occupied housing want to compare the total population of those in occupied housing to the total population in any housing situation? No idea. I feel like that a total overall population would fit naturally into the occupied housing table. To my point...it's not very intuitive.
 
 ## other challenges
-I want to just analyze sacramento city, but I am not sure if that is an available geography in the acs. lets see. above, I 
 
+### Which datasets can I use?
+I am realizing from the calls above the one year ACS data from 2021 that for that particular dataset, it can only produce data for geographies 65,000 people and larger. It gives that warning after the query, I imagine that's true for all of 1 year ACS datasets. Let's check.
+```{r}
+print(
+    get_acs(geography = "county",
+            state = "CA",
+            county = "Sacramento",
+            geometry = TRUE,
+            year = 2019, survey = "acs1",
+            variables = c("B01003_001", "B01001_001")
+           )
+     )
+print(
+    get_acs(geography = "county",
+            state = "CA",
+            county = "Sacramento",
+            geometry = TRUE,
+            year = 2015, survey = "acs1",
+            variables = c("B01003_001", "B01001_001")
+           )
+     )
+```
+Yep, all the 1 year data can only be applied to geographies with at least 65,000 people
+
+The ACS data is released on a rolling basis, and each year's 5-year estimates represent data collected over a 5-year period. for example, if we set the year argument in a `get_acs` query to 2021, that data that it populate will be from surveys taken in the years 2017-2021.
+
+Since I have been using the ACS 1 year estimates data for the examples above, I am going to look through the metadata from the 5 year ACS.
+```{r}
+view(load_variables(year = 2021, dataset = "acs5"))
+```
+Seems like the variables have the same names as the 1 year 2021 census
+
+### filtering for tracts only in the city of sacramento
+I want to just analyze Sacramento city, but I am not sure if that is an available geography in the ACS. Let's check by doing a `get_acs` call in which we set the  `geography = "city"`
+
+Yeah, that didn't work. I think what we are going to have to do is download the whole county data and then filter out the area outside of the city.
+
+I'm think that the best way to do this will be to download a map of the city, plot it as an `sf` layer with the tract level county data, see how the borders overlap, and then decide on the best way to filter the tracts.
+
+I found a map of the cities that make up sacramento county on [this website](https://data.sacog.org/datasets/sacramentocounty::city-boundaries-with-unincorporated/about)
+
+The data seems queriable. I'm going to refer back to the textbook for how to correctly import this map. Note that I am transforming the CRS from a global geodetic to local projected. The textbook doesn't do a good job of explaining CRS and its importance. It can sort of be thought of like units of measurement. Some are more appropriate than other given certain situations. you measure human weight in pounds and magic mushrooms in grams. You could do it the other way around, but that wouldn't be intuitive and there may be more room for error. We start with a map of a portion of the oblate spheroid globe as reference points and measure distances in global degrees, and we transform it to a flat projected map that uses feet as distances: much more appropriate. 
+```{r}
+sac_county_borders <-
+        st_read("https://services1.arcgis.com/5NARefyPVtAeuJPU/arcgis/rest/services/CityBoundarieswithUnincorporated/FeatureServer/0/query?outFields=*&where=1%3D1&f=geojson") %>%
+    st_transform('EPSG:6418')
+head(sac_county_borders)
+print(st_crs(sac_county_borders))
+```
+Yay! we successfully queried the geoJSON data like in the textbook and we get a `sf` layer
+
+Let's try plotting it without transforming it in any way.
+```{r}
+ggplot() +
+    geom_sf(data = sac_county_borders) 
+```
+Well would you look at that. That looks like Sacramento county if I ever saw it! Now lets get just the city
+
+First, I want to take a look at my table of variables to understand what I need to select 
+```{r}
+view(sac_county_borders)
+```
+seems like Sacramento city is the 8th row, so the following code should create a new `sf` table with one row representing the city of Sacramento
+```{r}
+sac_city_border <-
+    sac_county_borders[8,]
+view(sac_city_border)
+```
+seems to have worked. now lets plot it.
+```{r}
+ggplot() +
+    geom_sf(data = sac_city_border) 
+```
+I'm a bit confused by that little chunk that missing inside of the city. I'm going to guess that that is unincorporated?? let's check
+```{r}
+ggplot() +
+    geom_sf(data = sac_county_borders[7,]) 
+```
+yep, that little chunk appears to be unincorporated. interesting. Wonder how that happened.
+
+now lets try layering the city on top of census tract level data of the county.
+
+I'm first going to query the 5 year tract level census data and then view and plot it to see what it looks like.
+```{r}
+sac_county_acs <- 
+     get_acs(geography = "tract",
+            state = "CA",
+            county = "Sacramento",
+            geometry = TRUE,
+            year = 2021, survey = "acs5",
+            variables = "B01003_001"
+           ) %>%
+    st_transform(st_crs(sac_county_borders)) #note that we are matching CRSs 
+head(sac_county_acs)
+
+ggplot() +
+    geom_sf(data = sac_county_acs)
+```
+That all looks like how we want it to look.
+
+Now, I want to layer my city outline on top of my census tract map to heuristically see if the city tracts fall perfectly into the city borders. In other words, I want to see if the borders cut through each other, in which case I will have a new challenge filtering for the tracts I want.
+```{r}
+ggplot() +
+    geom_sf(data = sac_county_acs) +
+    geom_sf(data = sac_city_border, aes(color = "red", alpha = .5)) 
+```
+Annoyingly, we learn that the census plots do not indeed fall neatly into the city boundaries. It seems like we are going to need to selct which tracts count as as part of the city and which do not. I think I will use the select by centroid approach used in the book. 
+
+But first, I want to investigate the purpose of the CRSs and see how they may be messing up what I am doing here.
+
+I found a document called "overview of CRS in R which says: "In R, when data with different CRS are combined it is important to transform them to a common CRS so they align with one another. This is similar to making sure that units are the same when measuring volume or distances."
+
+After a somewhat significant amount of reading, I think I have a decent grasp of how a coordinate reference system works. It's a framework for places geographic points relative to each other. At the largest geographic level a CRS can encompass the entire globe and calculate distances and geographies along the oblate spheroid that is our earth. It seems that a CRS that encompasses the entire earch can feasibly work for any region in the world, however, that comes at the cost of accuracy when we are looking at data in small geographic areas. These large area CRSs also use units of measurement like degrees which arent suitable for precise areas. CRSs are easily convertible. For My case I want to take my data which seems to be mapped using a geodetic system and convert it to a projected system that is accurated to the sacramento area.
+```{r}
+
+```
