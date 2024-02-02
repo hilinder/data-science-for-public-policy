@@ -232,6 +232,8 @@ ggplot() +
 ```
 That looks pretty good if I do say so myself.
 
+### Bike Lane Data
+
 Now we import the bike lanes.
 ```{r querying bike lane data}
  sac_bikelanes<-
@@ -241,4 +243,89 @@ head(sac_bikelanes)
 ggplot() +
     geom_sf(data = sac_bikelanes, color = "purple") +
     geom_sf(data = sac_city_border, color = "red", alpha = .5)
+ggplot() +
+    geom_sf(data = sac_bikelanes, color = "purple") +
+    geom_sf(data = sac_centroid_select, color = "red", alpha = .5)
 ```
+the way that plotted looks kind of funky but I'm not gonna deal wit that just yet. Already, I notice that some of the bike lanes extend beyond the city borders, those will end up being removed from our analysis. looking at the head of the data, I notice that I have one column titled `Shape__Length` without a unit of measurement. I'm guessing it's feet but we should be certain. we may need that information when trying to determine density of bike lanes by census tract. It says in the metadata on the city of Sacramento website that the unit of measurement is feet. We also have the length in miles measure which makes things clearer.
+
+Something that I noticed is that it seems that there are a fuck ton of duplicated rows in this data set, which was really confusing me.
+```{r}
+duplicate_lanes <- sac_bikelanes %>%
+    filter(
+        duplicated(select(., OBJECTID:Shape__Length)) | # the or operator `|` essentially work to return both selections without repeating those rows that are selected by both lines of code in the duplicated functions
+        duplicated(select(.,OBJECTID:Shape__Length), fromLast = TRUE) #this row checks for duplicates starting from the bottom of the dataset. without doing this the rows that the previous line of code identifies as having duplicates later in the dataset would not be counted.
+          )
+
+dlane <- sac_bikelanes %>% #dlane is a list of all the rows in the dataset that have the same values as a previous row
+    filter(
+        duplicated(select(., OBJECTID:Shape__Length)))
+
+```
+I don't know why, but the data repeats a whole bunch. `duplicate_lanes` is a dataframe that in all rows that appear more than once. `dlane` is a datafram that includes all rows that are a repeat of a previous row. since the number o rows in `dlane` is exactly half the number of rows in 
+
+time to get the unique values
+```{r removing duplicate rows}
+unique_sac_bikelanes <- anti_join(sac_bikelanes, st_drop_geometry(dlane)) %>% #this line of code removes all rows that have a duplicate, so we need to add back dlane so that we have all the bike lanes
+    rbind(dlane)
+
+    
+```
+
+now I want to see if the two plots of the orginal dataset and the unique rows dataset look about the same
+```{r plotting original dataset}
+ggplot() +
+    geom_sf(data = sac_bikelanes, color = "purple") +
+    geom_sf(data = sac_city_border, color = "red", alpha = .5)
+```
+```{r plotting new dataset without duplicates}
+ggplot() +
+    geom_sf(data = unique_sac_bikelanes, color = "purple") +
+    geom_sf(data = sac_city_border, color = "red", alpha = .5)
+```
+looks the same to me
+
+The next challenge will be determining the density of bike lanes in each tract. Since the census tracts certainly dissect some of the bike lanes, we are going to have to find a way to find a numerical distance for the dissected portion of each bike lane.the dataset gives us a whole length for each total bike lane, but that wont be useful spatial selection tools don't change other rows. In other words, each dissected row returned from a spatial selection will have the total length of the bikelane segment, not just the dissected protion.
+
+we can dissect each bike lane by census tract using the `st_intersection` function
+```{r intersecting the bike lanes with the}
+bikelane_intersection <- st_intersection(unique_sac_bikelanes, sac_centroid_select)
+```
+
+st_intersection deletes any parts of the bikelanes that do not fall into the multipolygons in our y value. I have been getting confused as to why the difference between our value for `unique_sac_bikelanes` and `bikelane_intersection` is not very large while `disssceted_lanes` which (next code chunk) represents all the bike lanes that cross between 2 or more polygons is so much larger. I think the reason for that is because I `unique_sac_bikelanes` includes lanes outside of our census tracts. 
+```{r counting intersections}
+in_tracts_bikelanes <-
+    st_intersection(unique_sac_bikelanes,st_union(sac_centroid_select))
+nrow(bikelane_intersection) - nrow(in_tracts_bikelanes)
+```
+The difference between the number of bikelane rows inside our acs tract borders of interest and the number of biklane rows in our acs border after being dissected by tract is 441. We'd then expect that the number of rows with repeated data (besides their new unique dissected geometry) to be 441.
+```{r}
+dissect_repeat <- st_drop_geometry(bikelane_intersection) %>%
+    filter(
+        duplicated(select(., OBJECTID:Shape__Length)) 
+          )
+nrow(dissect_repeat)
+```
+great! thants what we expected.
+
+Now I want to plot my dissected bikelanes to make sure everything looks right
+```{r dissected lanes plot}
+dissected_lanes <- st_drop_geometry(bikelane_intersection) %>%
+    filter(
+        duplicated(select(., OBJECTID:Shape__Length)) |
+        duplicated(select(.,OBJECTID:Shape__Length), fromLast = TRUE)
+          ) %>%
+    left_join(select(bikelane_intersection, OBJECTID:GEOID)) %>%
+        st_sf()
+
+
+ggplot() +
+    geom_sf(data = dissected_lanes, color = "purple") +
+    geom_sf(data = sac_centroid_select, color = "red", alpha = .5)
+    
+```
+that seems to make sense.
+
+```{r}
+```
+
