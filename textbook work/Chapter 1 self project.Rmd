@@ -232,7 +232,7 @@ ggplot() +
 ```
 That looks pretty good if I do say so myself.
 
-### Bike Lane Data
+### Getting and cleaning bikelane data
 
 Now we import the bike lanes.
 ```{r querying bike lane data}
@@ -250,7 +250,7 @@ ggplot() +
 the way that plotted looks kind of funky but I'm not gonna deal wit that just yet. Already, I notice that some of the bike lanes extend beyond the city borders, those will end up being removed from our analysis. looking at the head of the data, I notice that I have one column titled `Shape__Length` without a unit of measurement. I'm guessing it's feet but we should be certain. we may need that information when trying to determine density of bike lanes by census tract. It says in the metadata on the city of Sacramento website that the unit of measurement is feet. We also have the length in miles measure which makes things clearer.
 
 Something that I noticed is that it seems that there are a fuck ton of duplicated rows in this data set, which was really confusing me.
-```{r}
+```{r removing duplicate rows from bikelane dataset}
 duplicate_lanes <- sac_bikelanes %>%
     filter(
         duplicated(select(., OBJECTID:Shape__Length)) | # the or operator `|` essentially work to return both selections without repeating those rows that are selected by both lines of code in the duplicated functions
@@ -299,7 +299,7 @@ in_tracts_bikelanes <-
 nrow(bikelane_intersection) - nrow(in_tracts_bikelanes)
 ```
 The difference between the number of bikelane rows inside our acs tract borders of interest and the number of biklane rows in our acs border after being dissected by tract is 441. We'd then expect that the number of rows with repeated data (besides their new unique dissected geometry) to be 441.
-```{r}
+```{r counting additional rows after dissection}
 dissect_repeat <- st_drop_geometry(bikelane_intersection) %>%
     filter(
         duplicated(select(., OBJECTID:Shape__Length)) 
@@ -309,7 +309,7 @@ nrow(dissect_repeat)
 great! thants what we expected.
 
 Now I want to plot my dissected bikelanes to make sure everything looks right
-```{r dissected lanes plot}
+```{r dissected lanes plotted}
 dissected_lanes <- st_drop_geometry(bikelane_intersection) %>%
     filter(
         duplicated(select(., OBJECTID:Shape__Length)) |
@@ -326,6 +326,86 @@ ggplot() +
 ```
 that seems to make sense.
 
+###creating a new variable: biklane density per plot
+
+next step. I want to calculate the density of bikelanes within each tract. Right now, within my bikelane intersection data, I do not have a column representing the true length of each segment
+```{r getting road length per linestring}
+bikelane_intersection <- bikelane_intersection %>%
+    mutate(roadlenght = st_length(.))
+view(bikelane_intersection)
+```
+this looks right. when we `view` our updated `bikelane_intersection`, the new roadlength column even outputs values that clarify that the unit of measurement as US survey foot. the values in this column are part of the `units` class. This means that when making calculations with multiple measurements it does automatic unit conversion.
+
+
+now I am going to create a new dataframe that has the sum total bike lane length by each geoid
+```{r combining bikelane lengths by GEOID}
+tot_bikelane_length_byGEOID <- 
+    aggregate(data = bikelane_intersection,roadlenght ~ GEOID, sum) %>%
+    rename(combined_roadlength = roadlenght)
+```
+okay cool it seems like we got we are looking for. We have 127 objects which matches the number of objects in `sac_centroid_select` and the sum total lenght of all the bikelanes matches that from `bikelane_intersection`
+
+now we can join our combined bikelane road length data to our census tract data.
+```{r joining length by GEOID to main dataset}
+sac_centroid_select <- tot_bikelane_length_byGEOID %>%
+    left_join(sac_centroid_select) %>%
+    st_sf()
+```
+now let's calculate the area of each tract and caculate the desity of bikelanes per each tract by dividing the combined bikelane lenght by the area of each tract.
+```{r creating our bikelane density variable}
+sac_centroid_select <- sac_centroid_select %>%
+ mutate(tract_area = st_area(.))
+ 
+ggplot() +
+     geom_sf(data = sac_centroid_select, aes(fill = as.numeric(tract_area)))
+
+sac_centroid_select <- sac_centroid_select %>%
+    mutate(bikelane_density = combined_roadlength/tract_area)
+ 
+ggplot() +
+     geom_sf(data = sac_centroid_select, aes(fill = as.numeric(bikelane_density))) + 
+     geom_sf(data = bikelane_intersection, color = "red", alpha = .5) 
+```
+That looks about right to me. I want to see how the spread of the bikelane density looks
 ```{r}
+hist(sac_centroid_select$bikelane_density, breaks = 10)
+```
+Looking at the spread of our data, it seems that there are handful of tracts with a very high bikelane density whereas most of the city hovers on the lower end. I wonder what the top 20 percent of tracts by bikelane density are.
+
+```{r}
+print(
+  quantile(sac_centroid_select$bikelane_density, probs = .8)  
+     )
+```
+
+```{r}
+ggplot() +
+     geom_sf(data = filter(sac_centroid_select,
+                           bikelane_density >= quantile(sac_centroid_select$bikelane_density, probs = .8)
+                          ),
+     aes(fill = as.numeric(bikelane_density))
+            ) + 
+     geom_sf(data = bikelane_intersection, color = "red", alpha = .5) 
+```
+I wonder what the top 10 percent looks like
+```{r}
+ggplot() +
+     geom_sf(data = filter(sac_centroid_select,
+                           bikelane_density >= quantile(sac_centroid_select$bikelane_density, probs = .9)
+                          ),
+     aes(fill = as.numeric(bikelane_density))
+            ) + 
+     geom_sf(data = bikelane_intersection, color = "red", alpha = .5) 
+```
+
+what about the bottom 20%
+```{r}
+ggplot() +
+     geom_sf(data = filter(sac_centroid_select,
+                           bikelane_density <= quantile(sac_centroid_select$bikelane_density, probs = .2)
+                          ),
+     aes(fill = as.numeric(bikelane_density))
+            ) + 
+     geom_sf(data = bikelane_intersection, color = "red", alpha = .5) 
 ```
 
