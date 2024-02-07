@@ -186,7 +186,10 @@ yep, that little chunk appears to be unincorporated. interesting. Wonder how tha
 
 now lets try layering the city on top of census tract level data of the county.
 
+### selecting my acs variables
+
 I'm first going to query the 5 year tract level census data and then view and plot it to see what it looks like.
+
 ```{r querying sac county census}
 sac_county_acs <- 
      get_acs(geography = "tract",
@@ -194,7 +197,8 @@ sac_county_acs <-
             county = "Sacramento",
             geometry = TRUE,
             year = 2021, survey = "acs5",
-            variables = "B01003_001"
+            output = "wide",
+            variables = c(total_pop = "B01003_001", med_yearlyincome_2021adjusted = "B06011_001", med_age = "B01002_001", total_white = "B02001_002", med_housingcost = "B25105_001", total_poverty = "B06012_002", total_bachelors_ages25plus = "B15003_022", twentyfiveto34yo_grossrent_as_pct_householdincome_greaterthan_35pct = "B25072_014", male_25to29 = "B01001_011", fem_25to29 = "B01001_035")
            ) %>%
     st_transform(st_crs(sac_county_borders)) #note that we are matching CRSs 
 head(sac_county_acs)
@@ -202,6 +206,8 @@ head(sac_county_acs)
 ggplot() +
     geom_sf(data = sac_county_acs)
 ```
+### back to mapping
+
 That all looks like how we want it to look.
 
 Now, I want to layer my city outline on top of my census tract map to heuristically see if the city tracts fall perfectly into the city borders. In other words, I want to see if the borders cut through each other, in which case I will have a new challenge filtering for the tracts I want.
@@ -367,12 +373,12 @@ ggplot() +
      geom_sf(data = bikelane_intersection, color = "red", alpha = .5) 
 ```
 That looks about right to me. I want to see how the spread of the bikelane density looks
-```{r}
+```{r histrogram of bikelane density}
 hist(sac_centroid_select$bikelane_density, breaks = 10)
 ```
 Looking at the spread of our data, it seems that there are handful of tracts with a very high bikelane density whereas most of the city hovers on the lower end. I wonder what the top 20 percent of tracts by bikelane density are.
 
-```{r}
+```{r quantiles}
 print(
   quantile(sac_centroid_select$bikelane_density, probs = .8)  
      )
@@ -407,5 +413,34 @@ ggplot() +
      aes(fill = as.numeric(bikelane_density))
             ) + 
      geom_sf(data = bikelane_intersection, color = "red", alpha = .5) 
+```
+```{r}
+sac_centroid_select <- sac_centroid_select %>%
+    mutate(FtoM_25to29yo = ifelse(male_25to29E > 0, fem_25to29E/male_25to29E, NA),
+           pctWhite = ifelse(total_popE > 0, total_whiteE/total_popE, NA),
+           pctBachelors = ifelse(total_popE > 0, total_bachelors_ages25plusE/total_popE, NA),
+           pct25to29 = ifelse(total_popE > 0, (male_25to29E + fem_25to29E)/total_popE, NA),
+           pctPoverty = ifelse(total_popE > 0, total_povertyE/total_popE, NA)
+           ) 
+view(sac_centroid_select)
+```
+
+```{r}
+ggplot() +
+  geom_sf(data = sac_centroid_select, aes(fill = factor(cut_number(sac_centroid_select$FtoM_25to29yo, n = 5, labels = F)))) +
+  scale_fill_manual(values = c("brown", "red", "orange", "green", "blue"),
+                    labels = as.character(quantile(sac_centroid_select$FtoM_25to29yo, probs = seq(0, 1, by = .2), na.rm = T)),
+                    name = "ratio of ladies\n(Quintile Breaks)") +
+  mapTheme()
+```
+
+```{r}
+ggplot(sac_centroid_select, aes(x = bikelane_density, y = pctWhite)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = F)
+```
+
+```{r}
+view(gather(sac_centroid_select, key = "variable", value = ""))
 ```
 
