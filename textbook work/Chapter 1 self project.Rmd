@@ -20,10 +20,14 @@ library(tidycensus)
 library(sf)
 library(kableExtra)
 library(ggplot2)
+library(units)
 
 options(scipen=999) #says no scientific notation
 options(tigris_class = "sf") # tells tidycensus to download in sf layers
 #hopefully this will be all the packages I need
+
+root.dir <- "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
 ```
 
 ```{r census api key}
@@ -384,7 +388,7 @@ print(
      )
 ```
 
-```{r}
+```{r top 20% densest tracts}
 ggplot() +
      geom_sf(data = filter(sac_centroid_select,
                            bikelane_density >= quantile(sac_centroid_select$bikelane_density, probs = .8)
@@ -394,7 +398,7 @@ ggplot() +
      geom_sf(data = bikelane_intersection, color = "red", alpha = .5) 
 ```
 I wonder what the top 10 percent looks like
-```{r}
+```{r to10% densest tracts}
 ggplot() +
      geom_sf(data = filter(sac_centroid_select,
                            bikelane_density >= quantile(sac_centroid_select$bikelane_density, probs = .9)
@@ -405,7 +409,7 @@ ggplot() +
 ```
 
 what about the bottom 20%
-```{r}
+```{r bottow 20% densest tracts}
 ggplot() +
      geom_sf(data = filter(sac_centroid_select,
                            bikelane_density <= quantile(sac_centroid_select$bikelane_density, probs = .2)
@@ -414,7 +418,7 @@ ggplot() +
             ) + 
      geom_sf(data = bikelane_intersection, color = "red", alpha = .5) 
 ```
-```{r}
+```{r creating percentage variables}
 sac_centroid_select <- sac_centroid_select %>%
     mutate(FtoM_25to29yo = ifelse(male_25to29E > 0, fem_25to29E/male_25to29E, NA),
            pctWhite = ifelse(total_popE > 0, total_whiteE/total_popE, NA),
@@ -425,7 +429,7 @@ sac_centroid_select <- sac_centroid_select %>%
 view(sac_centroid_select)
 ```
 
-```{r}
+```{r f to m ratio}
 ggplot() +
   geom_sf(data = sac_centroid_select, aes(fill = factor(cut_number(sac_centroid_select$FtoM_25to29yo, n = 5, labels = F)))) +
   scale_fill_manual(values = c("brown", "red", "orange", "green", "blue"),
@@ -434,13 +438,28 @@ ggplot() +
   mapTheme()
 ```
 
-```{r}
+```{r test plot}
 ggplot(sac_centroid_select, aes(x = bikelane_density, y = pctWhite)) +
     geom_point() +
     geom_smooth(method = "lm", se = F)
 ```
 
-```{r}
-view(gather(sac_centroid_select, key = "variable", value = ""))
+```{r gathering for plotting}
+view( sac_centroid_select %>%
+    st_drop_geometry() %>%
+    select(GEOID, total_whiteE, bikelane_density, med_yearlyincome_2021adjustedE, med_ageE, med_housingcostE, total_povertyE, total_bachelors_ages25plusE, pctWhite, pctBachelors, pct25to29, pctPoverty) %>%
+    gather( key = "variable", value = "value", -GEOID, -bikelane_density)
+    )
 ```
+```{r plotting all my variables against bikelane density}
+sac_centroid_select %>%
+    st_drop_geometry() %>%
+    select(GEOID, total_whiteE, bikelane_density, med_yearlyincome_2021adjustedE, med_ageE, med_housingcostE, total_povertyE, total_bachelors_ages25plusE, pctWhite, pctBachelors, pct25to29, pctPoverty) %>%
+    gather( key = "variable", value = "value", -GEOID, -bikelane_density) %>%
 
+ggplot(aes(x = bikelane_density, y = value)) +
+    geom_point() +
+    geom_smooth(method = "lm", se = F) +
+    facet_wrap(~variable, ncol = 3, scales = "free")
+```
+As I expected, there's a positive correlation between a tracts whiteness, education level, and amount of young people. There's less of a correlation with income. 
