@@ -1,0 +1,121 @@
+---
+title: "Chapter 2"
+author: "Harrison Linder"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### 2.1.2 Setup Lancaster data
+```{r loading necessary libraries}
+options(scipen=999)
+
+library(tidyverse)
+library(sf)
+library(gridExtra)
+library(grid)
+library(kableExtra)
+
+root.dir = "https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/DATA/"
+source("https://raw.githubusercontent.com/urbanSpatial/Public-Policy-Analytics-Landing/master/functions.r")
+```
+
+`studyAreaTowns` - A polygon layer of town polygons inside of the Lancaster County study area. Note that there is a MUNI or municipal town name for each town polygon.
+`uga` - A polygon layer of the spatial extent of Lancaster County’s Urban Growth Area.
+`lancCounty` - A polygon layer of the spatial extent of Lancaster County.
+`buildings` - A polygon layer of the footprint for all buildings in the study area.
+`greenSpace` - A polygon layer showing areas classified as non-developed land cover as classified by the USGS.
+
+```{r loading geospatial data}
+lancCounty <- st_read(file.path(root.dir,"/Chapter2/LancasterCountyBoundary.geojson")) %>%
+  st_transform('ESRI:102728')
+
+uga <- st_read(file.path(root.dir,"/Chapter2/Urban_Growth_Boundary.geojson")) %>% 
+  st_transform('ESRI:102728')
+
+studyAreaTowns <- st_read(file.path(root.dir,"/Chapter2/StudyAreaTowns.geojson")) %>% 
+  st_transform('ESRI:102728')
+buildings <- st_read(file.path(root.dir,"/Chapter2/LancasterCountyBuildings.geojson")) %>% 
+  st_transform('ESRI:102728')
+greenSpace <- st_read(file.path(root.dir,"/Chapter2/LancasterGreenSpace.geojson")) %>% 
+  st_transform('ESRI:102728')
+```
+
+the textbook uses `st_buffer` to remove some of the 'extraneous slivers' within the UGA. I'm going to visualize this to see what it means.
+
+```{r creating a unioned UGA across towns}
+uga_union <- 
+     st_union(uga) %>%
+  st_buffer(dist = 1) %>% #the buffer adds to the existing area of the object. since it's only one object, overlaps seem to be automatically unionized. Our distance unit appears to be feet. The little chunks wer are getting rid of are exceedinly small it seems.
+  st_sf()
+
+ggplot() +
+    geom_sf(data = st_union(uga)) + 
+    mapTheme()
+
+ggplot() +
+    geom_sf(data = uga_union) + 
+    mapTheme()
+```
+The point of this part of the chapter is determining places where extension of the urban growth boundary makes sense based on whether there is a large difference in density difference along the boundary. we are comparing the density 1/8th mile inside the boundary to that 1/8th mile outside the boundary.
+
+```{r creating our buffer areas}
+outsideBuffer <-
+  st_buffer(uga_union, 660) %>%
+  st_difference(uga_union) %>%
+  mutate(Legend = "Outside")
+
+insideBuffer <- 
+  st_buffer(uga_union, dist = -660) %>%
+  st_difference(uga_union, .) %>%
+  mutate(Legend = "Inside")
+
+bothBuffers <- rbind(insideBuffer, outsideBuffer)
+```
+
+```{r plotting our buffer areas}
+ggplot() + 
+  geom_sf(data = bothBuffers, aes(fill = Legend)) +
+  scale_fill_manual(values = c("#F8766D", "#00BFC4")) + 
+  labs(title = "1/8mi buffer inside & outside UGA") +
+  mapTheme()
+```
+Sometimes when working with spatial data, one will come across 'broken' geometries. geometries are 'broken' when they break certain rules. for example, with a polygon, if it does not close or its lines intersect, it would be considered broken. The most common breaks can be easily fixed with functions as shown below.
+
+
+
+```{r fixing broken geometry plus}
+table(st_is_valid(studyAreaTowns))
+
+buffersAndTowns <- 
+  st_intersection(st_make_valid(studyAreaTowns), bothBuffers) %>%
+  filter(MUNI != "MOUNTVILLE BOROUGH" & MUNI != "MILLERSVILLE BOROUGH") # these towns appear on only one side of the UGA
+
+arrange(buffersAndTowns, MUNI) %>% print(n=25)
+```
+
+the textbook challenges us to visualize `buffersAndTowns` in a way that makes sense
+
+```{r plot of our urban growth boundaries by towns}
+ggplot() +
+    geom_sf(data = studyAreaTowns, aes(fill = MUNI)) +
+    geom_sf(data = buffersAndTowns, aes(fill = Legend), alpha = .5) +
+    labs(title = "Inside/Outside UGA over towns") +
+    scale_fill_viridis_d(name = "Buffers & Towns",
+                       breaks = unique(buffersAndTowns$Legend),
+                       labels = unique(buffersAndTowns$Legend)) +
+    mapTheme()
+```
+```{r}
+buildingCentroids <- 
+  st_centroid(buildings) %>% #creates a centroid for each build. essentially getting a point instead of a polygon
+  mutate(counter = 1) %>% # a numeric value that will be used to sum up the number of buildings within an area.
+  dplyr::select(counter) # we are left with the building centroid and the 1 representing its value as a single building
+
+buffersAndTowns_Buildings <- 
+  aggregate(buildingCentroids, buffersAndTowns, sum) %>% #spatially joins the building centroids to the buffer and town it belongs to. sum sums up our counter row by by buffer and town. essentially giving us our buildings per buffer town. 
+  cbind(buffersAndTowns) %>%
+  mutate(counter = replace_na(counter, 0),
+         Area = as.numeric(st_area(.))) 
+
+```
+
