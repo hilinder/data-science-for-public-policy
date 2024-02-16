@@ -39,7 +39,7 @@ we will be using the following data
 from the textbook: In this chapter, the tidycensus is used to query and return Census data directly into R. At the time of publication however, the Census has disabled the year 2000 endpoint/data.10 Instead, the code below downloads an equivalent data frame called tracts00. A data frame is the most common way to store data in R. The code block at the end of this section demonstrates a tidycensus call to return 2017 data.
 ```{r}
 tracts00 <- 
-  st_read(file.path(root.dir,"/Chapter1/PHL_CT00.geojson")) %>% 
+  st_read(file.path(root.dir,"/Chapter1/PHL_CT00.geojson"))%>% 
     st_transform('ESRI:102728')
 
 tracts00[1:3,]
