@@ -188,4 +188,59 @@ print(WestHempfield_BuildingsPlot)
 print(studyAreaCutoutMap)
 
 ```
+```{r creating the multiple ring buffer}
+multipleRing <-
+  rbind(
+    multipleRingBuffer(uga_union, -14520, -660) %>% #the first number indicates the greatest distanced ring and the second number represents the intervals for each ring
+    mutate(Legend = "Inside the UGA"),
+      multipleRingBuffer(uga_union, 26400, 660) %>%
+      mutate(Legend = "Outside the UGA")) 
+```
+
+```{r plotting the multiple ring buffer}
+ggplot() +
+    geom_sf(data = uga_union, color = "black") +
+    geom_sf(data = multipleRing, aes(color = Legend)) +
+    mapTheme()
+
+```
+the textbook doesnt give a good explanation of how to use `scale_fill_gradient2` to make the map shown in the textbook. so we aren't gonna worry about that too much.
+
+```{r}
+RingsAndTowns <- 
+  st_intersection(multipleRing, st_make_valid(studyAreaTowns)) # essentially divides the rings by each town boundary, essentially breaks up each town by distance from the city center.
+  
+buildings.in.RingsAndTowns <- 
+  aggregate(buildingCentroids, 
+            RingsAndTowns, sum) %>% # adds up all the buildings within each ring by town
+  cbind(RingsAndTowns) %>% # we now how the number of buidlings per ring by town added to RingsAndTowns
+  dplyr::select(-geometry.1) %>% # I guess we have multiple geometries, and this drops one of them. not sure what happens when have a sf with multiple geometries ?
+  mutate(counter = replace_na(counter, 0),
+         Area = as.numeric(st_area(.))) # we ultimately get a sf with the number of buildings per ring by town as well as the total area of each ring by town
+```
+The book creates some useful looking plots of density by distance and the bid rent curves. It doesnt give us the code but gives some hints on how to do it. let's try.
+
+```{r density by distance plot}
+buildings.in.RingsAndTowns <- buildings.in.RingsAndTowns %>%
+    mutate(Building_Density = counter/Area)
+
+summ_density_distance <- buildings.in.RingsAndTowns %>%
+         st_drop_geometry() %>%
+         group_by(distance) %>%
+         summarise(Building_Density = sum(Building_Density), Legend = Legend) 
+         
+
+ggplot(
+   summ_density_distance,
+       aes(x = distance, y = Building_Density, color = Legend)
+        ) +
+    geom_point()
+```
+
+```{r}
+view(buildings.in.RingsAndTowns %>%
+         group_by(distance) %>%
+         summarise(densityByDistance = sum(Building_Density))
+    )
+```
 
