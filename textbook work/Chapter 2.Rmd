@@ -105,7 +105,7 @@ ggplot() +
                        labels = unique(buffersAndTowns$Legend)) +
     mapTheme()
 ```
-```{r}
+```{r calculating building density in the buffers}
 buildingCentroids <- 
   st_centroid(buildings) %>% #creates a centroid for each build. essentially getting a point instead of a polygon
   mutate(counter = 1) %>% # a numeric value that will be used to sum up the number of buildings within an area.
@@ -116,6 +116,76 @@ buffersAndTowns_Buildings <-
   cbind(buffersAndTowns) %>%
   mutate(counter = replace_na(counter, 0),
          Area = as.numeric(st_area(.))) 
+
+```
+
+```{r understanding the group_by function}
+view(
+buffersAndTowns_Buildings %>%
+summarize(Building_Count = sum(counter))
+    )
+view(
+buffersAndTowns_Buildings %>%
+  group_by(MUNI) %>% #group_by when used in conjuction with summarzie or other "verb" functions works to ensure that we get the summary stats for variables by the specified group instead of the the tables as a whole
+    summarize(Building_Count = sum(counter))
+    )
+```
+
+```{r calculating building density}
+buffersAndTowns_Buildings_Summarize <-
+  buffersAndTowns_Buildings %>%
+  group_by(MUNI, Legend) %>%
+    summarize(Building_Count = sum(counter),
+              Area = sum(Area)) %>%
+    mutate(Building_Density = Building_Count / Area)
+```
+```{r caluculating the diff in density between each towns inside and outside buffer}
+buildingDifferenceTable <-
+  st_drop_geometry(buffersAndTowns_Buildings_Summarize) %>%
+    dplyr::select(MUNI, Legend, Building_Density) %>%
+    spread(Legend, Building_Density) %>% # we want Inside and Outside to be in the same row for each town. the spread function takes the inside and outside values and makes them their own columns and fills in the building_density values as their values.
+      mutate(Building_Difference = Inside - Outside) %>%
+      arrange(desc(Building_Difference)) 
+```
+
+```{r closer look at West Hempfield}
+westHempfield <- 
+  filter(studyAreaTowns, MUNI == "WEST HEMPFIELD TOWNSHIP")
+
+uga_WH <- 
+  st_intersection(uga, westHempfield) %>% #selects the overlap of the polygons uga and westHempfiled
+  st_union() %>% 
+  st_sf()
+
+buildings_WH <-
+  rbind(                                
+    buildings[uga_WH,] %>%              #Within... it seems like using the brackets we are able to spatially join and find which buildings fall within uga_WH
+      mutate(Legend = "Inside UGA"), 
+    buildings[westHempfield,] %>%       #Without
+      .[uga_WH, , op = st_disjoint] %>%
+      mutate(Legend = "Outside UGA"))
+
+```
+
+The book challenges us to recreate the map it shows.
+
+```{r}
+WestHempfield_BuildingsPlot <-
+ggplot() +
+    geom_sf(data = westHempfield, color = "black") +
+    geom_sf(data = st_intersection(greenSpace, westHempfield), fill = "#239162", alpha = .2) +
+    geom_sf(data = buildings_WH, aes(fill = Legend)) +
+    scale_fill_manual(values = c("#5becfc", "red")) +
+    mapTheme()
+
+studyAreaCutoutMap <-
+ggplot() + 
+    geom_sf(data = studyAreaTowns, fill = "grey") +
+    geom_sf(data = westHempfield, fill = "black") +
+    mapTheme()
+
+print(WestHempfield_BuildingsPlot)
+print(studyAreaCutoutMap)
 
 ```
 
